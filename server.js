@@ -16,9 +16,10 @@ const orderRoutes = require('./routes/orderRoutes');
 const warehouseRoutes = require('./routes/warehouseRoutes');
 const productTransactionRoutes = require('./routes/productTransactionRoutes');
 const liveStockDashboardRoutes = require('./routes/liveStockDashboardRoutes');
-const shelfInventoryRoutes = require('./routes/shelfInventoryRoutes');
 const shelfTransferRoutes = require('./routes/shelfTransferRoutes');
 const shelfDashboardRoutes = require('./routes/shelfDashboardRoutes');
+const stockRoutes = require('./routes/stockRoutes');
+const stockTransactionRoutes = require('./routes/stockTransactionRoutes');
 
 const app = express();
 const PORT = parseInt(process.env.PORT) || 3003;
@@ -44,9 +45,10 @@ app.use('/', orderRoutes);
 app.use('/', warehouseRoutes);
 app.use('/', productTransactionRoutes);
 app.use('/', liveStockDashboardRoutes);
-app.use('/', shelfInventoryRoutes);
 app.use('/', shelfTransferRoutes);
 app.use('/', shelfDashboardRoutes);
+app.use('/', stockRoutes);
+app.use('/', stockTransactionRoutes);
 
 async function startServer() {
   try {

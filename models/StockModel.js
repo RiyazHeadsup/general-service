@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const mongoosePaginate = require('mongoose-paginate-v2');
 
-const shelfInventorySchema = new mongoose.Schema({
+const stockSchema = new mongoose.Schema({
   warehouseId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Warehouse',
@@ -20,18 +20,43 @@ const shelfInventorySchema = new mongoose.Schema({
     required: true,
     index: true
   },
-  shelfType: {
+  type: {
     type: String,
     enum: ['professional', 'retail'],
     required: true,
     index: true
   },
-  quantity: {
+  status: {
+    type: String,
+    enum: ['transferd', 'recevied','instock','rejected'],
+    index: true
+  },
+  place: {
+    type: String,
+    enum: ['shelves', 'inStock','warehouse','salon'],
+    required: true,
+    index: true
+  },
+  stockLocation: {
+    type: String,
+    enum: ['warehouse','salon'],
+    required: true,
+    index: true
+  },qty: {
     type: Number,
     default: 0,
     required: true
   },
-  quantityAlert: {
+  stockIn: {
+    type: Number,
+    default: 0,
+    required: true
+  },
+  stockAlert: {
+    type: Number,
+    default: 0
+  },
+  stockOut: {
     type: Number,
     default: 0
   },
@@ -40,12 +65,12 @@ const shelfInventorySchema = new mongoose.Schema({
     default: true
   }
 }, { 
-  timestamps: true
+  timestamps: { currentTime: () => Date.now() }
 });
 
 // Compound index for unique shelf inventory per product/unit/shelf type
-shelfInventorySchema.index({ productId: 1, unitId: 1, shelfType: 1 }, { unique: true });
+// stockSchema.index({ productId: 1, unitId: 1, type: 1 });
 
-shelfInventorySchema.plugin(mongoosePaginate);
+stockSchema.plugin(mongoosePaginate);
 
-module.exports = mongoose.model('ShelfInventory', shelfInventorySchema);
+module.exports = mongoose.model('Stock', stockSchema);
