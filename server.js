@@ -20,6 +20,7 @@ const shelfTransferRoutes = require('./routes/shelfTransferRoutes');
 const shelfDashboardRoutes = require('./routes/shelfDashboardRoutes');
 const stockRoutes = require('./routes/stockRoutes');
 const stockTransactionRoutes = require('./routes/stockTransactionRoutes');
+const serviceFollowupRoutes = require('./routes/serviceFollowupRoutes');
 
 const app = express();
 const PORT = parseInt(process.env.PORT) || 3003;
@@ -49,6 +50,7 @@ app.use('/', shelfTransferRoutes);
 app.use('/', shelfDashboardRoutes);
 app.use('/', stockRoutes);
 app.use('/', stockTransactionRoutes);
+app.use('/', serviceFollowupRoutes);
 
 async function startServer() {
   try {
@@ -117,7 +119,13 @@ async function startServer() {
       console.log(`   POST /searchShelfDashboard - Search shelf dashboards`);
       console.log(`   POST /updateShelfDashboard - Update shelf dashboard`);
       console.log(`   POST /deleteShelfDashboard - Delete shelf dashboard`);
-      
+      console.log(`   POST /addServiceFollowup - Create new service followup`);
+      console.log(`   POST /searchServiceFollowup - Search service followups`);
+      console.log(`   POST /updateServiceFollowup - Update service followup`);
+      console.log(`   POST /deleteServiceFollowup - Delete service followup`);
+      console.log(`   GET  /getAllServiceFollowups - Get all active service followups`);
+      console.log(`   GET  /getServiceFollowup/:id - Get service followup by ID`);
+
       await consulConfig.registerService();
     });
   } catch (error) {
