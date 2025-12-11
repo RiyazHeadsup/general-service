@@ -27,6 +27,7 @@ const PORT = parseInt(process.env.PORT) || 3003;
 
 app.use(express.json());
 
+
 const database = new DatabaseConfig();
 const consulConfig = new ConsulConfig({
   servicePort: PORT
