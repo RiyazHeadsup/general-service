@@ -46,6 +46,14 @@ const taskSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  scheduleType: {
+    type: String,
+    trim: true
+  },
+  scheduledDateTime: {
+    type: Number,
+    default: null
+  },
   startDateTime: {
     type: Number,
     default: null
@@ -64,7 +72,7 @@ const taskSchema = new mongoose.Schema({
   },
   assignedTo: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'users'
+    ref: 'User'
   }],
   unitIds: {
     type: mongoose.Schema.Types.ObjectId,
@@ -76,12 +84,15 @@ const taskSchema = new mongoose.Schema({
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'users'
+    ref: 'User'
   },
   upDatedBy: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'users'
+    ref: 'User'
   },
+  weekDays: [{
+    type: String
+  }],
   weekDaysForMonthly: [{
     type: Number
   }],
@@ -93,6 +104,14 @@ const taskSchema = new mongoose.Schema({
   },
   updatedAt: {
     type: Number
+  },
+  taskcreatedformonth: {
+    type: Number,
+    default: null
+  },
+  isCommon: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: false

@@ -21,6 +21,9 @@ const shelfDashboardRoutes = require('./routes/shelfDashboardRoutes');
 const stockRoutes = require('./routes/stockRoutes');
 const stockTransactionRoutes = require('./routes/stockTransactionRoutes');
 const serviceFollowupRoutes = require('./routes/serviceFollowupRoutes');
+const cronRoutes = require('./routes/cronRoutes');
+
+const taskEvidenceRoutes = require('./routes/taskEvidenceRoutes');
 
 const app = express();
 const PORT = parseInt(process.env.PORT) || 3003;
@@ -43,6 +46,7 @@ app.use('/', clientRoutes);
 app.use('/', vendorRoutes);
 app.use('/', inventoryRoutes);
 app.use('/', taskRoutes);
+app.use('/', taskEvidenceRoutes);
 app.use('/', orderRoutes);
 app.use('/', warehouseRoutes);
 app.use('/', productTransactionRoutes);
@@ -52,6 +56,7 @@ app.use('/', shelfDashboardRoutes);
 app.use('/', stockRoutes);
 app.use('/', stockTransactionRoutes);
 app.use('/', serviceFollowupRoutes);
+app.use('/', cronRoutes);
 
 async function startServer() {
   try {
@@ -103,6 +108,10 @@ async function startServer() {
       console.log(`   POST /searchTask - Search tasks`);
       console.log(`   POST /updateTask - Update task`);
       console.log(`   POST /deleteTask - Delete task`);
+      console.log(`   POST /createTaskEvidence - Create task evidence`);
+      console.log(`   POST /searchTaskEvidence - Search task evidences`);
+      console.log(`   POST /updateTaskEvidence - Update task evidence`);
+      console.log(`   POST /deleteTaskEvidence - Delete task evidence`);
       console.log(`   POST /addOrder - Create new order`);
       console.log(`   POST /searchOrder - Search orders`);
       console.log(`   POST /updateOrder - Update order`);
@@ -126,6 +135,12 @@ async function startServer() {
       console.log(`   POST /deleteServiceFollowup - Delete service followup`);
       console.log(`   GET  /getAllServiceFollowups - Get all active service followups`);
       console.log(`   GET  /getServiceFollowup/:id - Get service followup by ID`);
+      console.log(`   POST /trigger-daily-task - Trigger daily task evidence creation`);
+      console.log(`   POST /trigger-monthly-task - Trigger monthly task evidence creation`);
+      console.log(`   GET  /debug-monthly-tasks - Debug monthly tasks and check why they're not being created`);
+      console.log(`   GET  /cron-status - Get cron service status`);
+
+
 
       await consulConfig.registerService();
     });
