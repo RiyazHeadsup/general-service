@@ -7,253 +7,27 @@ const EvidenceStatus = {
   REJECTED: 'rejected'
 };
 
-class CronController {
-
-  async triggerDailyTask(req, res) {
-    console.log("hello Shariq", req.body);
-
-    try {
-      const result = await this.createDailyTaskEvidence();
-      res.status(200).json({
-        result,
-        success: true,
-        message: 'Daily task evidence creation triggered successfully',
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: 'Failed to trigger daily task evidence creation',
-        error: error.message,
-        timestamp: new Date().toISOString(),
-      });
-    }
+class TaskManagementMonthly {
+  constructor() {
+    this.logger = {
+      log: (message) => console.log(`[TaskManagementMonthly] ${message}`),
+      warn: (message) => console.warn(`[TaskManagementMonthly] ${message}`),
+      error: (message, error) => console.error(`[TaskManagementMonthly] ${message}`, error)
+    };
   }
 
-  async triggerMonthlyTask(req, res) {
+  async addMonthlyTask() {
     try {
-      const result = await this.addMonthlyTask();
+      this.logger.log('Starting monthly task creation process...');
 
-      res.status(200).json({
-        result,
-        success: true,
-        message: 'Monthly task evidence creation triggered successfully',
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error) {
-      console.error('❌ Error in triggerMonthlyTask:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to trigger monthly task evidence creation',
-        error: error.message,
-        timestamp: new Date().toISOString(),
-      });
-    }
-  }
-
-  async debugMonthlyTasks(req, res) {
-    try {
-      // Get all tasks to debug
-      const allTasks = await Task.find({});
       const monthlyTasks = await Task.find({
         status: 'active',
         taskFrequency: 'monthly'
       });
-
-      const today = new Date();
-      const currentMonth = today.getMonth();
-      const currentYear = today.getFullYear();
-
-      // Check which tasks have evidence for this month
-      const tasksWithDetails = await Promise.all(
-        monthlyTasks.map(async (task) => {
-          const hasEvidence = task.taskcreatedformonth ?
-            new Date(task.taskcreatedformonth).getMonth() === currentMonth &&
-            new Date(task.taskcreatedformonth).getFullYear() === currentYear : false;
-
-          // Calculate what dates would be created
-          const weekDaysForMonthly = (task.weekDaysForMonthly || []).map(String);
-          const monthWeeks = (task.monthWeeks || []).map(String);
-
-          let calculatedDates = [];
-          let skipReason = null;
-
-          if (hasEvidence) {
-            skipReason = 'Already created for current month';
-          } else if (!weekDaysForMonthly.length || !monthWeeks.length) {
-            skipReason = 'Missing weekDaysForMonthly or monthWeeks';
-          } else if (!task.assignedTo || task.assignedTo.length === 0) {
-            skipReason = 'No users assigned';
-          } else {
-            // Calculate dates
-            try {
-              const weekdayOccurrences = this.calculateWeekdayOccurrencesInMonth(
-                weekDaysForMonthly,
-                monthWeeks,
-                today
-              );
-
-              const todayStart = new Date(today);
-              todayStart.setHours(0, 0, 0, 0);
-
-              for (const [dayStr, dates] of Object.entries(weekdayOccurrences)) {
-                for (const date of dates) {
-                  if (date >= todayStart) {
-                    calculatedDates.push(date.toISOString());
-                  }
-                }
-              }
-
-              if (calculatedDates.length === 0) {
-                skipReason = 'All calculated dates are in the past';
-              }
-            } catch (err) {
-              skipReason = `Error calculating dates: ${err.message}`;
-            }
-          }
-
-          return {
-            _id: task._id,
-            taskName: task.taskName,
-            status: task.status,
-            taskFrequency: task.taskFrequency,
-            weekDaysForMonthly: task.weekDaysForMonthly,
-            monthWeeks: task.monthWeeks,
-            assignedTo: task.assignedTo,
-            assignedToCount: task.assignedTo?.length || 0,
-            isCommon: task.isCommon,
-            taskcreatedformonth: task.taskcreatedformonth,
-            hasEvidenceForCurrentMonth: hasEvidence,
-            hasRequiredFields: !!(task.weekDaysForMonthly?.length && task.monthWeeks?.length),
-            calculatedDates: calculatedDates,
-            willCreateEvidence: calculatedDates.length > 0 && !hasEvidence,
-            skipReason: skipReason
-          };
-        })
-      );
-
-      res.status(200).json({
-        success: true,
-        currentDate: today.toISOString(),
-        currentMonth: currentMonth + 1,
-        currentYear: currentYear,
-        totalTasks: allTasks.length,
-        totalMonthlyTasks: monthlyTasks.length,
-        activeMonthlyTasks: monthlyTasks.filter(t => t.status === 'active').length,
-        tasksDetails: tasksWithDetails,
-        summary: {
-          tasksReadyToCreate: tasksWithDetails.filter(t => t.willCreateEvidence).length,
-          tasksAlreadyCreated: tasksWithDetails.filter(t => t.hasEvidenceForCurrentMonth).length,
-          tasksMissingFields: tasksWithDetails.filter(t => !t.hasRequiredFields).length,
-          tasksWithPastDates: tasksWithDetails.filter(t => t.skipReason === 'All calculated dates are in the past').length
-        }
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: 'Debug failed',
-        error: error.message,
-        stack: error.stack
-      });
-    }
-  }
-
-  getStatus(req, res) {
-    res.status(200).json({
-      service: 'Cron Service',
-      status: 'active',
-      endpoints: {
-        triggerDailyTask: 'POST /generalservice/trigger-daily-task',
-        triggerMonthlyTask: 'POST /generalservice/trigger-monthly-task',
-        debugMonthlyTasks: 'GET /generalservice/debug-monthly-tasks',
-        status: 'GET /generalservice/cron-status',
-      },
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  async createDailyTaskEvidence() {
-    const currentDate = new Date();
-    const startOfDay = new Date(currentDate.setHours(0, 0, 0, 0)).getTime();
-    const endOfDay = new Date(currentDate.setHours(23, 59, 59, 999)).getTime();
-
-    const dailyTasks = await Task.find({
-      taskFrequency: 'daily',
-      status: 'active',
-      startDateTime: { $lte: endOfDay },
-      $or: [
-        { endDateTime: { $gte: startOfDay } },
-        { endDateTime: null }
-      ]
-    });
-
-    const results = [];
-
-    for (const task of dailyTasks) {
-      const existingInterval = task.taskIntervals.find(
-        interval => interval.start >= startOfDay && interval.start <= endOfDay
-      );
-
-      if (!existingInterval) {
-        task.taskIntervals.push({
-          start: startOfDay,
-          end: endOfDay,
-          status: IntervalStatus.PENDING,
-          interval: 'daily',
-          taskEvidenceUrl: null
-        });
-
-        await task.save();
-        results.push({
-          taskId: task._id,
-          taskName: task.taskName,
-          action: 'created',
-          interval: { start: startOfDay, end: endOfDay }
-        });
-      } else {
-        results.push({
-          taskId: task._id,
-          taskName: task.taskName,
-          action: 'skipped',
-          reason: 'Interval already exists for today'
-        });
-      }
-    }
-
-    return {
-      processedCount: dailyTasks.length,
-      createdCount: results.filter(r => r.action === 'created').length,
-      skippedCount: results.filter(r => r.action === 'skipped').length,
-      details: results
-    };
-  }
-
-  // ==========================================
-  // NEW MONTHLY TASK LOGIC implementation
-  // ==========================================
-
-  async addMonthlyTask() {
-    try {
-
-      // Modified to fetch all active monthly tasks
-      const monthlyTasks = await Task.find({
-        // status: 'active',
-        // taskFrequency: 'monthly' || 'daily'
-      });
-      console.log(`Found ${monthlyTasks.length} monthly tasks to process`);
-
-      // Log each task details for debugging
-      monthlyTasks.forEach((task, index) => {
-        console.log(`\n=== Task ${index + 1}: ${task.taskName} ===`);
-        console.log(`  _id: ${task._id}`);
-        console.log(`  weekDaysForMonthly: ${JSON.stringify(task.weekDaysForMonthly)}`);
-        console.log(`  monthWeeks: ${JSON.stringify(task.monthWeeks)}`);
-        console.log(`  assignedTo: ${task.assignedTo?.length || 0} users`);
-        console.log(`  taskcreatedformonth: ${task.taskcreatedformonth ? new Date(task.taskcreatedformonth).toISOString() : 'null'}`);
-      });
+      this.logger.log(`Found ${monthlyTasks.length} monthly tasks to process`);
 
       if (monthlyTasks.length === 0) {
-        console.warn('⚠️ No monthly tasks found in database');
+        this.logger.warn('No monthly tasks found in database');
         return {
           success: true,
           message: 'No monthly tasks to process',
@@ -266,7 +40,7 @@ class CronController {
           try {
             return await this.createMonthlyTask(element);
           } catch (error) {
-            console.error(
+            this.logger.error(
               `Failed to create evidence for task ${element.taskName}:`,
               error,
             );
@@ -278,19 +52,28 @@ class CronController {
       const successfulCreations = createdEvidences
         .filter((evidence) => evidence !== null)
         .flat();
-      console.log(
-        `✅ Successfully created ${successfulCreations.length} monthly task evidences`,
+      this.logger.log(
+        `Successfully created ${successfulCreations.length} monthly task evidences`,
       );
 
-      // summary logic ...
+      // Calculate weekday repetition summary for all tasks
       const today = new Date();
       const currentDayOfWeek = today.getDay() === 0 ? 7 : today.getDay();
 
       const tasksSummary = monthlyTasks.map((task) => {
+        // Calculate weekday repetitions for this task
+        const weekdayRepetitionSummary = this.getWeekdayRepetitionSummary(
+          task.weekDaysForMonthly,
+          task.monthWeeks,
+          today,
+        );
+
         return {
           taskName: task.taskName,
-          weekDays: task.weekDaysForMonthly,
-          monthWeeks: task.monthWeeks
+          currentDayOfWeek: currentDayOfWeek,
+          currentDayName: this.getDayName(currentDayOfWeek),
+          scheduledWeekdays: task.weekDaysForMonthly,
+          weekdayRepetitions: weekdayRepetitionSummary,
         };
       });
 
@@ -298,11 +81,12 @@ class CronController {
         success: true,
         totalTasks: monthlyTasks.length,
         successfulCreations: successfulCreations.length,
+        failedCreations: monthlyTasks.length - successfulCreations.length,
+        tasksSummary: tasksSummary,
         createdEvidences: successfulCreations,
-        tasksSummary
       };
     } catch (error) {
-      console.error('Error in addMonthlyTask:', error);
+      this.logger.error('Error in addMonthlyTask:', error);
       throw error;
     }
   }
@@ -310,67 +94,37 @@ class CronController {
   async createMonthlyTask(element) {
     try {
       const today = new Date();
+
+      // Check if monthly task evidence already exists for current month using taskcreatedformonth
       const currentMonth = today.getMonth();
       const currentYear = today.getFullYear();
 
-      console.log(`\n🔄 Processing Task: ${element.taskName} (ID: ${element._id})`);
-      console.log(`   Current Date: ${today.toISOString()}`);
-      console.log(`   Current Month: ${currentMonth + 1}, Year: ${currentYear}`);
-
-      // Check if already created for this month
       if (element.taskcreatedformonth) {
         const createdDate = new Date(element.taskcreatedformonth);
-        const createdMonth = createdDate.getMonth();
-        const createdYear = createdDate.getFullYear();
-
-        console.log(`   taskcreatedformonth: ${createdDate.toISOString()}`);
-        console.log(`   Created Month: ${createdMonth + 1}, Year: ${createdYear}`);
-
-        if (createdMonth === currentMonth && createdYear === currentYear) {
-          console.log(`   ❌ SKIPPING: Already created for this month`);
+        if (
+          createdDate.getMonth() === currentMonth &&
+          createdDate.getFullYear() === currentYear
+        ) {
+          this.logger.log(
+            `Monthly task evidence already exists for current month (${currentYear}-${(currentMonth + 1).toString().padStart(2, '0')}) for task: ${element.taskName}`,
+          );
           return null;
         }
       }
 
       // Calculate weekday occurrences based on monthWeeks and weekDaysForMonthly
-      // Ensure we convert number arrays to string arrays if needed, or update logic to handle numbers
-      const weekDaysForMonthly = (element.weekDaysForMonthly || []).map(String);
-      const monthWeeks = (element.monthWeeks || []).map(String);
-
-      console.log(`   Task Config - WeekDays: [${weekDaysForMonthly.join(',')}], Weeks: [${monthWeeks.join(',')}]`);
-
-      if (weekDaysForMonthly.length === 0 || monthWeeks.length === 0) {
-        console.log(`   ❌ SKIPPING: Missing configuration (weekDaysForMonthly or monthWeeks empty)`);
-        return null;
-      }
-
-      if (!element.assignedTo || element.assignedTo.length === 0) {
-        console.log(`   ❌ SKIPPING: No users assigned to task`);
-        return null;
-      }
-
-      console.log(`   ✅ Task validation passed, proceeding to calculate occurrences...`);
-
       const weekdayOccurrences = this.calculateWeekdayOccurrencesInMonth(
-        weekDaysForMonthly,
-        monthWeeks,
+        element.weekDaysForMonthly,
+        element.monthWeeks,
         today,
+      );
+
+      this.logger.log(
+        `Scheduled weekdays: [${element.weekDaysForMonthly.join(', ')}]`,
       );
 
       // Create evidence for all weekday occurrences in the month
       const createdEvidences = [];
-      const occurrencesCount = Object.values(weekdayOccurrences).reduce((acc, val) => acc + val.length, 0);
-      console.log(`   📊 Calculated ${occurrencesCount} potential occurrences for ${element.taskName}`);
-
-      if (occurrencesCount === 0) {
-        console.log(`   ❌ SKIPPING: No valid date occurrences calculated`);
-        return null;
-      }
-
-      // Log all calculated dates
-      for (const [dayStr, dates] of Object.entries(weekdayOccurrences)) {
-        console.log(`   Day ${dayStr}: ${dates.length} dates - ${dates.map(d => d.toDateString()).join(', ')}`);
-      }
 
       for (const [dayStr, dates] of Object.entries(weekdayOccurrences)) {
         const dayNum = parseInt(dayStr);
@@ -381,25 +135,32 @@ class CronController {
           todayStart.setHours(0, 0, 0, 0);
 
           if (targetDate < todayStart) {
-            console.log(`   ⏭️  Skipping past date: ${targetDate.toDateString()}`);
+            this.logger.log(
+              `Skipping past date: ${targetDate.toDateString()} for ${this.getDayName(dayNum)}`,
+            );
             continue;
           }
 
-          console.log(`\n   ✔️  Checking date: ${targetDate.toDateString()} for ${element.taskName}`);
+          // Log if we're including today
+          if (targetDate.toDateString() === today.toDateString()) {
+            this.logger.log(
+              `Including current day: ${targetDate.toDateString()} for ${this.getDayName(dayNum)}`,
+            );
+          }
 
           // Check if evidence already exists for this date
+          // For common tasks, check once. For individual tasks, check per user later
           if (element.isCommon !== false) {
-            console.log(`      Checking if evidence exists for this date...`);
             const existingEvidence = await this.hasEvidenceForDate(
               String(element._id),
               targetDate,
             );
 
             if (existingEvidence) {
-              console.log(`      ❌ SKIPPING: Common evidence already exists`);
+              this.logger.log(
+                `Common evidence already exists for ${element.taskName} on ${targetDate.toDateString()}`,
+              );
               continue;
-            } else {
-              console.log(`      ✅ No existing evidence found, will create`);
             }
           }
 
@@ -425,19 +186,20 @@ class CronController {
             };
           });
 
+          // Set createdAt and updatedAt to the target date's start time
           const targetDateStart = new Date(targetDate);
           targetDateStart.setHours(0, 0, 0, 0);
 
           // Check isCommon flag to determine evidence creation strategy
-          const assignedUsers = element.assignedTo || [];
-
-          if (assignedUsers.length === 0) {
-            console.log(`  Warning: No users assigned to task ${element.taskName}`);
-          }
-
           if (element.isCommon === false) {
             // Create separate task evidence for each assigned user
+            this.logger.log(
+              `Task ${element.taskName} is NOT common - creating separate evidence for ${element.assignedTo?.length || 0} users`,
+            );
+
+            const assignedUsers = element.assignedTo || [];
             for (const userId of assignedUsers) {
+              // Check if evidence already exists for this specific user and date
               const userEvidenceExists = await this.hasEvidenceForDateAndUser(
                 String(element._id),
                 targetDate,
@@ -445,6 +207,9 @@ class CronController {
               );
 
               if (userEvidenceExists) {
+                this.logger.log(
+                  `Individual evidence already exists for user ${userId} - Task: ${element.taskName} on ${targetDate.toDateString()}`,
+                );
                 continue;
               }
 
@@ -463,7 +228,7 @@ class CronController {
                 monthWeeks: element.monthWeeks || [],
                 roleId: element.roleId,
                 unitIds: element.unitIds,
-                assignedTo: [userId],
+                assignedTo: [userId], // Single user for individual evidence
                 taskIntervals: updatedIntervals,
                 status: EvidenceStatus.PENDING,
                 createdAt: targetDateStart.getTime(),
@@ -473,10 +238,17 @@ class CronController {
               const createEvidence = new TaskEvidence(evidenceData);
               const savedEvidence = await createEvidence.save();
               createdEvidences.push(savedEvidence);
-              console.log(`      ✅ Created individual evidence for user ${userId} - ID: ${savedEvidence._id}`);
+
+              this.logger.log(
+                `Individual task evidence created for user ${userId} - Task: ${element.taskName} on ${targetDate.toDateString()} (${this.getDayName(dayNum)})`,
+              );
             }
           } else {
-            // Create single task evidence for all users
+            // Create single task evidence for all users (isCommon = true or undefined)
+            this.logger.log(
+              `Task ${element.taskName} is common - creating single evidence for all ${element.assignedTo?.length || 0} users`,
+            );
+
             const evidenceData = {
               taskId: element._id,
               taskName: element.taskName,
@@ -492,7 +264,7 @@ class CronController {
               monthWeeks: element.monthWeeks || [],
               roleId: element.roleId,
               unitIds: element.unitIds,
-              assignedTo: assignedUsers,
+              assignedTo: element.assignedTo || [], // All users for common evidence
               taskIntervals: updatedIntervals,
               status: EvidenceStatus.PENDING,
               createdAt: targetDateStart.getTime(),
@@ -502,26 +274,28 @@ class CronController {
             const createEvidence = new TaskEvidence(evidenceData);
             const savedEvidence = await createEvidence.save();
             createdEvidences.push(savedEvidence);
-            console.log(`      ✅ Created common evidence - ID: ${savedEvidence._id}`);
+
+            this.logger.log(
+              `Common task evidence created for: ${element.taskName} on ${targetDate.toDateString()} (${this.getDayName(dayNum)}) assigned to ${element.assignedTo?.length || 0} users`,
+            );
           }
         }
       }
 
       // Update the task's taskcreatedformonth field if evidence was created
       if (createdEvidences.length > 0) {
-        console.log(`\n   ✅ Successfully created ${createdEvidences.length} task evidence(s)`);
         await Task.updateOne(
           { _id: element._id },
           { taskcreatedformonth: Date.now() },
         );
-        console.log(`   ✅ Updated taskcreatedformonth for task: ${element.taskName}`);
-      } else {
-        console.log(`\n   ⚠️  No evidence created for task: ${element.taskName}`);
+        this.logger.log(
+          `Updated taskcreatedformonth for task: ${element.taskName}`,
+        );
       }
 
       return createdEvidences.length > 0 ? createdEvidences : null;
     } catch (error) {
-      console.error(
+      this.logger.error(
         `Error creating monthly evidence for ${element.taskName}:`,
         error,
       );
@@ -529,17 +303,21 @@ class CronController {
     }
   }
 
+  // Helper function to get current week of the month (1-4 or 1-5)
   getCurrentWeekOfMonth(date) {
     const firstDayOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
     const firstDayWeekday = firstDayOfMonth.getDay();
     const currentDate = date.getDate();
+
     const adjustedDate = currentDate + firstDayWeekday - 1;
     const weekOfMonth = Math.ceil(adjustedDate / 7);
+
     return weekOfMonth;
   }
 
+  // Helper function to get remaining weeks in the month
   async getRemainingWeeks(monthWeeks, currentWeek, taskId) {
-    console.log(
+    this.logger.log(
       `Month weeks scheduled: [${monthWeeks.join(', ')}], Current week: ${currentWeek}`,
     );
 
@@ -564,20 +342,21 @@ class CronController {
       (week) => parseInt(week) < currentWeek,
     );
 
-    console.log(
+    this.logger.log(
       `Passed weeks: [${passedWeeks.join(', ')}], Current week incomplete: ${currentWeekRemaining}, Remaining weeks: [${remainingWeeks.join(', ')}]`,
     );
 
     return remainingWeeks;
   }
 
+  // Check if current week's tasks are incomplete
   async isCurrentWeekIncomplete(taskId, currentWeek) {
     try {
       const today = new Date();
       const startOfWeek = this.getStartOfWeek(today, currentWeek);
       const endOfWeek = this.getEndOfWeek(today, currentWeek);
 
-      console.log(
+      this.logger.log(
         `Checking completion for week ${currentWeek}: ${startOfWeek.toLocaleDateString()} - ${endOfWeek.toLocaleDateString()}`,
       );
 
@@ -590,7 +369,7 @@ class CronController {
       });
 
       if (!taskEvidence) {
-        console.log(`No evidence found for current week ${currentWeek}`);
+        this.logger.log(`No evidence found for current week ${currentWeek}`);
         return true;
       }
 
@@ -600,20 +379,22 @@ class CronController {
       );
 
       const isIncomplete = incompleteIntervals.length > 0;
-      console.log(
+      this.logger.log(
         `Week ${currentWeek} task status: ${taskEvidence.status}, Incomplete intervals: ${incompleteIntervals.length}`,
       );
 
       return isIncomplete;
     } catch (error) {
-      console.error(`Error checking week completion:`, error);
+      this.logger.error(`Error checking week completion:`, error);
       return true;
     }
   }
 
+  // Get start of specific week in current month
   getStartOfWeek(date, weekNumber) {
     const firstDayOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
     const firstDayWeekday = firstDayOfMonth.getDay();
+
     const startDate = 1 + (weekNumber - 1) * 7 - firstDayWeekday + 1;
     return new Date(
       date.getFullYear(),
@@ -622,6 +403,7 @@ class CronController {
     );
   }
 
+  // Get end of specific week in current month
   getEndOfWeek(date, weekNumber) {
     const startOfWeek = this.getStartOfWeek(date, weekNumber);
     const endOfWeek = new Date(startOfWeek);
@@ -630,11 +412,12 @@ class CronController {
     return endOfWeek;
   }
 
+  // Get remaining weekdays for current week
   async getRemainingWeekdaysForCurrentWeek(weekDaysForMonthly, currentWeek, today, taskId) {
     try {
       const currentDayOfWeek = today.getDay() === 0 ? 7 : today.getDay();
 
-      console.log(
+      this.logger.log(
         `Checking weekdays: Scheduled [${weekDaysForMonthly.join(', ')}], Today is day ${currentDayOfWeek} (${this.getDayName(currentDayOfWeek)})`,
       );
 
@@ -644,7 +427,7 @@ class CronController {
         const dayNum = parseInt(dayStr);
         const todayWeek = this.getCurrentWeekOfMonth(today);
         if (currentWeek === todayWeek && dayNum < currentDayOfWeek) {
-          console.log(
+          this.logger.log(
             `Day ${dayNum} (${this.getDayName(dayNum)}) - passed in current week ${currentWeek}`,
           );
           continue;
@@ -659,11 +442,11 @@ class CronController {
 
         if (!evidenceExists) {
           remainingWeekdays.push(dayStr);
-          console.log(
+          this.logger.log(
             `Day ${dayNum} (${this.getDayName(dayNum)}) - remaining (no evidence)`,
           );
         } else {
-          console.log(
+          this.logger.log(
             `Day ${dayNum} (${this.getDayName(dayNum)}) - completed (evidence exists)`,
           );
         }
@@ -671,15 +454,17 @@ class CronController {
 
       return remainingWeekdays;
     } catch (error) {
-      console.error('Error getting remaining weekdays:', error);
+      this.logger.error('Error getting remaining weekdays:', error);
       return weekDaysForMonthly;
     }
   }
 
+  // Check if evidence exists for specific weekday in current week
   async hasEvidenceForWeekday(taskId, weekNumber, dayOfWeek, currentDate) {
     try {
       const weekStartDate = this.getStartOfWeek(currentDate, weekNumber);
       const targetDate = new Date(weekStartDate);
+
       const weekStartDay =
         weekStartDate.getDay() === 0 ? 7 : weekStartDate.getDay();
       const daysToAdd = dayOfWeek - weekStartDay;
@@ -701,21 +486,25 @@ class CronController {
 
       return evidence !== null;
     } catch (error) {
-      console.error('Error checking weekday evidence:', error);
+      this.logger.error('Error checking weekday evidence:', error);
       return false;
     }
   }
 
+  // Helper to get specific date for week and day in current month
   getDateForWeekAndDay(currentDate, weekNumber, dayOfWeek) {
     const weekStartDate = this.getStartOfWeek(currentDate, weekNumber);
     const targetDate = new Date(weekStartDate);
+
     const weekStartDay =
       weekStartDate.getDay() === 0 ? 7 : weekStartDate.getDay();
     const daysToAdd = dayOfWeek - weekStartDay;
     targetDate.setDate(weekStartDate.getDate() + daysToAdd);
+
     return targetDate;
   }
 
+  // Get dates for weekday in the last week (week 5) of the month
   getLastWeekDatesForWeekday(currentDate, dayOfWeek) {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -738,6 +527,7 @@ class CronController {
     return dates.sort((a, b) => a.getTime() - b.getTime());
   }
 
+  // Check if a date is in the last week (beyond normal 4 weeks)
   isDateInLastWeek(date) {
     const year = date.getFullYear();
     const month = date.getMonth();
@@ -746,15 +536,35 @@ class CronController {
     return date.getDate() > week4End.getDate() && date.getDate() <= daysInMonth;
   }
 
+  // Check if monthly task evidence already exists for current month
   async hasMonthlyEvidenceForCurrentMonth(taskId, currentDate) {
     try {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
+
       const startOfMonth = new Date(year, month, 1);
       startOfMonth.setHours(0, 0, 0, 0);
 
       const endOfMonth = new Date(year, month + 1, 0);
       endOfMonth.setHours(23, 59, 59, 999);
+
+      this.logger.log(
+        `DEBUG: Searching for evidence with taskId: ${taskId}, taskFrequency: 'monthly', createdAt between ${startOfMonth.getTime()} and ${endOfMonth.getTime()}`,
+      );
+
+      const anyEvidence = await TaskEvidence.findOne({
+        taskId: taskId,
+      });
+
+      this.logger.log(
+        `DEBUG: Any evidence exists for taskId ${taskId}: ${anyEvidence ? 'YES' : 'NO'}`,
+      );
+
+      if (anyEvidence) {
+        this.logger.log(
+          `DEBUG: Found evidence with taskFrequency: ${anyEvidence.taskFrequency}, createdAt: ${anyEvidence.createdAt}`,
+        );
+      }
 
       const evidence = await TaskEvidence.findOne({
         taskId: taskId,
@@ -765,9 +575,14 @@ class CronController {
         },
       });
 
-      return evidence !== null;
+      const exists = evidence !== null;
+      this.logger.log(
+        `Checking monthly evidence for ${currentDate.getFullYear()}-${(currentDate.getMonth() + 1).toString().padStart(2, '0')}: ${exists ? 'EXISTS' : 'NOT FOUND'}`,
+      );
+
+      return exists;
     } catch (error) {
-      console.error(
+      this.logger.error(
         'Error checking monthly evidence for current month:',
         error,
       );
@@ -775,6 +590,7 @@ class CronController {
     }
   }
 
+  // Calculate weekday occurrences based on monthWeeks and weekDaysForMonthly
   calculateWeekdayOccurrencesInMonth(weekDaysForMonthly, monthWeeks, currentDate = new Date()) {
     try {
       const year = currentDate.getFullYear();
@@ -786,6 +602,10 @@ class CronController {
         weekdayOccurrences[day] = [];
       });
 
+      this.logger.log(
+        `Calculating occurrences for weeks: [${monthWeeks.join(', ')}] and weekdays: [${weekDaysForMonthly.join(', ')}]`,
+      );
+
       monthWeeks.forEach((weekStr) => {
         const weekNumber = parseInt(weekStr);
 
@@ -796,11 +616,20 @@ class CronController {
             const lastWeekDates = this.getLastWeekDatesForWeekday(currentDate, dayNumber);
             lastWeekDates.forEach(date => {
               weekdayOccurrences[dayStr].push(date);
+              const isToday = date.toDateString() === new Date().toDateString();
+              this.logger.log(
+                `Week 5 (last week) - ${this.getDayName(dayNumber)} occurs on ${date.toDateString()}${isToday ? ' (TODAY)' : ''}`,
+              );
             });
           } else {
             const targetDate = this.getDateForWeekAndDay(currentDate, weekNumber, dayNumber);
+
             if (targetDate.getMonth() === month && targetDate.getFullYear() === year) {
               weekdayOccurrences[dayStr].push(targetDate);
+              const isToday = targetDate.toDateString() === new Date().toDateString();
+              this.logger.log(
+                `Week ${weekNumber} - ${this.getDayName(dayNumber)} occurs on ${targetDate.toDateString()}${isToday ? ' (TODAY)' : ''}`,
+              );
             }
           }
         });
@@ -808,15 +637,17 @@ class CronController {
 
       return weekdayOccurrences;
     } catch (error) {
-      console.error('Error calculating weekday occurrences:', error);
+      this.logger.error('Error calculating weekday occurrences:', error);
       return {};
     }
   }
 
+  // Check if evidence exists for a specific date
   async hasEvidenceForDate(taskId, targetDate) {
     try {
       const startOfDay = new Date(targetDate);
       startOfDay.setHours(0, 0, 0, 0);
+
       const endOfDay = new Date(targetDate);
       endOfDay.setHours(23, 59, 59, 999);
 
@@ -830,15 +661,17 @@ class CronController {
 
       return evidence !== null;
     } catch (error) {
-      console.error('Error checking evidence for date:', error);
+      this.logger.error('Error checking evidence for date:', error);
       return false;
     }
   }
 
+  // Check if evidence exists for a specific date and user
   async hasEvidenceForDateAndUser(taskId, targetDate, userId) {
     try {
       const startOfDay = new Date(targetDate);
       startOfDay.setHours(0, 0, 0, 0);
+
       const endOfDay = new Date(targetDate);
       endOfDay.setHours(23, 59, 59, 999);
 
@@ -853,11 +686,12 @@ class CronController {
 
       return evidence !== null;
     } catch (error) {
-      console.error('Error checking evidence for date and user:', error);
+      this.logger.error('Error checking evidence for date and user:', error);
       return false;
     }
   }
 
+  // Get detailed weekday repetition summary with day names and dates
   getWeekdayRepetitionSummary(weekDaysForMonthly, monthWeeks, currentDate = new Date()) {
     const weekDays = weekDaysForMonthly.map(String);
     const weeks = monthWeeks.map(String);
@@ -895,6 +729,7 @@ class CronController {
     };
   }
 
+  // Helper to get day name for logging
   getDayName(dayNumber) {
     const days = [
       '',
@@ -910,4 +745,4 @@ class CronController {
   }
 }
 
-module.exports = new CronController();
+module.exports = new TaskManagementMonthly();
