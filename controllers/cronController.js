@@ -51,6 +51,63 @@ class CronController {
     }
   }
 
+  async triggerSingleMonthlyTask(req, res) {
+    try {
+      const { taskId } = req.body;
+
+      if (!taskId) {
+        return res.status(400).json({
+          success: false,
+          message: 'taskId is required in request body',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      console.log(`🔄 Triggering monthly task for taskId: ${taskId}`);
+
+      const task = await Task.findById(taskId);
+
+      if (!task) {
+        return res.status(404).json({
+          success: false,
+          message: `Task not found with id: ${taskId}`,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const result = await this.createMonthlyTask(task);
+
+      if (result && result.length > 0) {
+        res.status(200).json({
+          success: true,
+          message: `Monthly task evidence created successfully for task: ${task.taskName}`,
+          taskId: taskId,
+          taskName: task.taskName,
+          evidenceCount: result.length,
+          createdEvidences: result,
+          timestamp: new Date().toISOString(),
+        });
+      } else {
+        res.status(200).json({
+          success: true,
+          message: `No evidence created for task: ${task.taskName}. Possible reasons: already created for current month, missing configuration, or past dates.`,
+          taskId: taskId,
+          taskName: task.taskName,
+          evidenceCount: 0,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error in triggerSingleMonthlyTask:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to trigger single monthly task evidence creation',
+        error: error.message,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
   async debugMonthlyTasks(req, res) {
     try {
       // Get all tasks to debug
@@ -165,6 +222,7 @@ class CronController {
       endpoints: {
         triggerDailyTask: 'POST /generalservice/trigger-daily-task',
         triggerMonthlyTask: 'POST /generalservice/trigger-monthly-task',
+        triggerSingleMonthlyTask: 'POST /generalservice/trigger-single-monthly-task (requires taskId in body)',
         debugMonthlyTasks: 'GET /generalservice/debug-monthly-tasks',
         status: 'GET /generalservice/cron-status',
       },
