@@ -24,6 +24,7 @@ const serviceFollowupRoutes = require('./routes/serviceFollowupRoutes');
 const cronRoutes = require('./routes/cronRoutes');
 
 const taskEvidenceRoutes = require('./routes/taskEvidenceRoutes');
+const mediaRoutes = require('./routes/mediaRoutes');
 
 const app = express();
 const PORT = parseInt(process.env.PORT) || 3003;
@@ -57,6 +58,7 @@ app.use('/', stockRoutes);
 app.use('/', stockTransactionRoutes);
 app.use('/', serviceFollowupRoutes);
 app.use('/', cronRoutes);
+app.use('/', mediaRoutes);
 
 async function startServer() {
   try {
@@ -139,6 +141,10 @@ async function startServer() {
       console.log(`   POST /trigger-monthly-task - Trigger monthly task evidence creation`);
       console.log(`   GET  /debug-monthly-tasks - Debug monthly tasks and check why they're not being created`);
       console.log(`   GET  /cron-status - Get cron service status`);
+      console.log(`   POST /addMedia - Create new media`);
+      console.log(`   POST /searchMedia - Search media`);
+      console.log(`   POST /updateMedia - Update media`);
+      console.log(`   POST /deleteMedia - Delete media`);
 
 
 
