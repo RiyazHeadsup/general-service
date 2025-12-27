@@ -25,6 +25,7 @@ const cronRoutes = require('./routes/cronRoutes');
 
 const taskEvidenceRoutes = require('./routes/taskEvidenceRoutes');
 const mediaRoutes = require('./routes/mediaRoutes');
+const deviceRoutes = require('./routes/deviceRoutes');
 
 const app = express();
 const PORT = parseInt(process.env.PORT) || 3003;
@@ -59,6 +60,7 @@ app.use('/', stockTransactionRoutes);
 app.use('/', serviceFollowupRoutes);
 app.use('/', cronRoutes);
 app.use('/', mediaRoutes);
+app.use('/', deviceRoutes);
 
 async function startServer() {
   try {
@@ -145,6 +147,11 @@ async function startServer() {
       console.log(`   POST /searchMedia - Search media`);
       console.log(`   POST /updateMedia - Update media`);
       console.log(`   POST /deleteMedia - Delete media`);
+      console.log(`   POST /registerDevice - Register new device`);
+      console.log(`   POST /searchDevice - Search devices`);
+      console.log(`   POST /updateDevice - Update device`);
+      console.log(`   POST /deleteDevice - Delete device`);
+      console.log(`   GET  /getDeviceByCode/:deviceCode - Get device by code`);
 
 
 

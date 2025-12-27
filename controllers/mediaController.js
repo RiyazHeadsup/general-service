@@ -3,14 +3,14 @@ const Media = require('../models/Media');
 class MediaController {
   async addMedia(req, res) {
     try {
-      const { duration, type, orientation, source, isActive, unitIds } = req.body;
+      const { deviceId, duration, type, orientation, source, isActive, unitIds } = req.body;
 
-      if (!duration || !type || !orientation || !source || !unitIds) {
+      if (!deviceId || !duration || !type || !source || !unitIds) {
         return res.status(400).json({
           success: false,
           statusCode: 400,
           message: 'Missing required fields',
-          error: 'duration, type, orientation, source, and unitIds are required'
+          error: 'deviceId, duration, type, source, and unitIds are required'
         });
       }
 
@@ -23,7 +23,7 @@ class MediaController {
         });
       }
 
-      if (!['horizontal', 'vertical'].includes(orientation)) {
+      if (orientation && !['horizontal', 'vertical'].includes(orientation)) {
         return res.status(400).json({
           success: false,
           statusCode: 400,
@@ -32,14 +32,20 @@ class MediaController {
         });
       }
 
-      const newMedia = new Media({
+      const mediaData = {
+        deviceId,
         duration,
         type,
-        orientation,
         source,
         isActive: isActive !== undefined ? isActive : true,
         unitIds
-      });
+      };
+
+      if (orientation) {
+        mediaData.orientation = orientation;
+      }
+
+      const newMedia = new Media(mediaData);
 
       const savedMedia = await newMedia.save();
 
@@ -64,14 +70,53 @@ class MediaController {
     try {
       const { page = 1, limit = 10, sort = { createdAt: -1 }, search = {}, populate = [] } = req.body;
 
+      // Handle deviceCode search - convert to deviceId
+      let searchQuery = { ...search };
+
+      if (search.deviceCode) {
+        const Device = require('../models/Device');
+        const device = await Device.findOne({ deviceCode: search.deviceCode });
+
+        if (device) {
+          // Replace deviceCode with deviceId
+          delete searchQuery.deviceCode;
+          searchQuery.deviceId = device._id;
+        } else {
+          // Device not found, return empty result
+          return res.status(200).json({
+            success: true,
+            statusCode: 200,
+            message: 'No media found for this device code',
+            data: {
+              docs: [],
+              totalDocs: 0,
+              limit: parseInt(limit),
+              totalPages: 0,
+              page: parseInt(page),
+              pagingCounter: 1,
+              hasPrevPage: false,
+              hasNextPage: false,
+              prevPage: null,
+              nextPage: null
+            }
+          });
+        }
+      }
+
+      // Default populate for deviceId
+      const defaultPopulate = [
+        { path: 'deviceId', select: 'deviceCode deviceName deviceType resolution status orientation' },
+        { path: 'unitIds', select: 'unitName unitCode' }
+      ];
+
       const options = {
         page: parseInt(page),
         limit: parseInt(limit),
         sort,
-        populate
+        populate: populate.length > 0 ? populate : defaultPopulate
       };
 
-      const result = await Media.paginate(search, options);
+      const result = await Media.paginate(searchQuery, options);
 
       return res.status(200).json({
         success: true,
@@ -189,6 +234,89 @@ class MediaController {
         success: false,
         statusCode: 500,
         message: 'Failed to delete media',
+        error: error.message
+      });
+    }
+  }
+
+  async incrementView(req, res) {
+    try {
+      const { _id, deviceId } = req.body;
+
+      if (!_id) {
+        return res.status(400).json({
+          success: false,
+          statusCode: 400,
+          message: 'Media ID is required'
+        });
+      }
+
+      if (!deviceId) {
+        return res.status(400).json({
+          success: false,
+          statusCode: 400,
+          message: 'Device ID is required for view tracking'
+        });
+      }
+
+      const media = await Media.findById(_id);
+      if (!media) {
+        return res.status(404).json({
+          success: false,
+          statusCode: 404,
+          message: 'Media not found'
+        });
+      }
+
+      const AdView = require('../models/AdView');
+
+      // Check if this device has viewed this ad before
+      let adView = await AdView.findOne({ mediaId: _id, deviceId: deviceId });
+
+      let isUniqueView = false;
+
+      if (!adView) {
+        // First time this device is viewing this ad
+        isUniqueView = true;
+
+        adView = new AdView({
+          mediaId: _id,
+          deviceId: deviceId,
+          viewCount: 1,
+          firstViewedAt: new Date(),
+          lastViewedAt: new Date()
+        });
+
+        await adView.save();
+
+        // Increment unique view count
+        media.uniqueViewCount += 1;
+        media.lastViewedAt = new Date();
+        await media.save();
+      } else {
+        // Device has viewed before, just update lastViewedAt and viewCount
+        adView.viewCount += 1;
+        adView.lastViewedAt = new Date();
+        await adView.save();
+      }
+
+      return res.status(200).json({
+        success: true,
+        statusCode: 200,
+        message: isUniqueView ? 'Unique view recorded' : 'View count updated',
+        data: {
+          uniqueViewCount: media.uniqueViewCount,
+          isUniqueView: isUniqueView,
+          deviceViewCount: adView.viewCount
+        }
+      });
+
+    } catch (error) {
+      console.error('Error incrementing view:', error);
+      return res.status(500).json({
+        success: false,
+        statusCode: 500,
+        message: 'Internal server error',
         error: error.message
       });
     }

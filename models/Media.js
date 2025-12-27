@@ -3,6 +3,12 @@ const mongoosePaginate = require('mongoose-paginate-v2');
 
 const mediaSchema = new mongoose.Schema(
   {
+    deviceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Device',
+      required: true,
+      description: 'Associated device ID'
+    },
     duration: {
       type: Number,
       required: true,
@@ -16,7 +22,7 @@ const mediaSchema = new mongoose.Schema(
     },
     orientation: {
       type: String,
-      required: true,
+      required: false,
       enum: ['horizontal', 'vertical'],
       description: 'Media orientation'
     },
@@ -35,6 +41,16 @@ const mediaSchema = new mongoose.Schema(
       ref: 'Unit',
       required: true,
       description: 'Associated unit ID'
+    },
+    uniqueViewCount: {
+      type: Number,
+      default: 0,
+      description: 'Number of unique devices that viewed this ad'
+    },
+    lastViewedAt: {
+      type: Date,
+      default: null,
+      description: 'Last time media was viewed'
     },
     createdAt: {
       type: Number,
