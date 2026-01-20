@@ -33,6 +33,11 @@ const attendanceSchema = new mongoose.Schema({
   todaySalary: {
     type: Number
   },
+  dayType: {
+    type: String,
+    enum: ['Full Day', 'Half Day', 'Absent', 'No Punch Out'],
+    trim: true
+  },
   location: {
     type: String,
     trim: true

@@ -68,6 +68,16 @@ const userSchema = new mongoose.Schema({
     type: Number,
     required: false
   },
+  tdsEligible: {
+    type: Boolean,
+    required: false,
+    default: false
+  },
+  tdsPercentage: {
+    type: Number,
+    required: false,
+    default: 0
+  },
   weekOff: {
     type: String,
     required: false
