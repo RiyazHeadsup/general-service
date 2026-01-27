@@ -26,6 +26,8 @@ const cronRoutes = require('./routes/cronRoutes');
 const taskEvidenceRoutes = require('./routes/taskEvidenceRoutes');
 const mediaRoutes = require('./routes/mediaRoutes');
 const deviceRoutes = require('./routes/deviceRoutes');
+const salonParentRoutes = require('./routes/salonParentRoutes');
+const salonChildServiceRoutes = require('./routes/salonChildServiceRoutes');
 
 const app = express();
 const PORT = parseInt(process.env.PORT) || 3003;
@@ -61,6 +63,8 @@ app.use('/', serviceFollowupRoutes);
 app.use('/', cronRoutes);
 app.use('/', mediaRoutes);
 app.use('/', deviceRoutes);
+app.use('/', salonParentRoutes);
+app.use('/', salonChildServiceRoutes);
 
 async function startServer() {
   try {
@@ -152,6 +156,14 @@ async function startServer() {
       console.log(`   POST /updateDevice - Update device`);
       console.log(`   POST /deleteDevice - Delete device`);
       console.log(`   GET  /getDeviceByCode/:deviceCode - Get device by code`);
+      console.log(`   POST /addSalonParent - Create new salon parent`);
+      console.log(`   POST /searchSalonParent - Search salon parents`);
+      console.log(`   POST /updateSalonParent - Update salon parent`);
+      console.log(`   POST /deleteSalonParent - Delete salon parent`);
+      console.log(`   POST /addSalonChild - Create new salon child service`);
+      console.log(`   POST /searchSalonChild - Search salon child services`);
+      console.log(`   POST /updateSalonChild - Update salon child service`);
+      console.log(`   POST /deleteSalonChild - Delete salon child service`);
 
 
 
