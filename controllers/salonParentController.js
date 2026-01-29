@@ -1,4 +1,5 @@
 const SalonParent = require('../models/SalonParent');
+const SalonChildService = require('../models/SalonChildService');
 
 class SalonParentController {
   async createSalonParent(req, res) {
@@ -60,7 +61,9 @@ class SalonParentController {
       if (!salonParent) {
         return res.status(404).json({ error: 'SalonParent not found' });
       }
-      res.json({ statusCode: 200, message: 'SalonParent deleted successfully' });
+      // Delete all children associated with this parent
+      await SalonChildService.deleteMany({ parentId: _id });
+      res.json({ statusCode: 200, message: 'SalonParent and all its children deleted successfully' });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }

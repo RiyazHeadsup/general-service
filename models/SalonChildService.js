@@ -17,6 +17,36 @@ const productUsageSchema = new mongoose.Schema({
   }
 }, { _id: false });
 
+// Service steps schema - for multi-step services
+const serviceStepSchema = new mongoose.Schema({
+  step: {
+    type: Number,
+    required: false
+  },
+  stepName: {
+    type: String,
+    required: false,
+    trim: true
+  },
+  service_time: {
+    type: String,
+    required: false
+  }
+}, { _id: false });
+
+// Miscellaneous items schema - for consumables like towel, tissue, etc.
+const miscItemSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: false,
+    trim: true
+  },
+  price: {
+    type: Number,
+    required: false
+  }
+}, { _id: false });
+
 const salonChildServiceSchema = new mongoose.Schema({
   parentId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -73,6 +103,21 @@ const salonChildServiceSchema = new mongoose.Schema({
     type: String,
     enum: ['male', 'female'],
     required: false
+  },
+  steps: {
+    type: [serviceStepSchema],
+    required: false,
+    default: []
+  },
+  miscItems: {
+    type: [miscItemSchema],
+    required: false,
+    default: []
+  },
+  serviceMargin: {
+    type: Number,
+    required: false,
+    default: 0
   }
 }, {
   timestamps: true
