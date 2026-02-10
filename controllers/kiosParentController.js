@@ -61,7 +61,7 @@ class KiosParentController {
       if (!kiosParent) {
         return res.status(404).json({ error: 'KiosParent not found' });
       }
-      // Delete all children associated with this parent
+      // Delete all children associated with this pa
       await KiosChild.deleteMany({ parentId: _id });
       res.json({ statusCode: 200, message: 'KiosParent and all its children deleted successfully' });
     } catch (error) {
