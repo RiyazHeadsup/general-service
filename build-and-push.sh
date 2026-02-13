@@ -5,7 +5,11 @@ set -e
 
 # Configuration
 IMAGE_NAME="hcorptech/general-service-elevate"
+<<<<<<< HEAD
 VERSION="0.0.11"
+=======
+VERSION="0.0.9"
+>>>>>>> 45729d50cbe76c8d669df6af9f1dd379f495ec03
 PLATFORM="linux/amd64"
 
 echo "🚀 Building and pushing Docker image: ${IMAGE_NAME}:${VERSION}"
