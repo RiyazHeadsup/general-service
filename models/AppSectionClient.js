@@ -53,6 +53,11 @@ const appSectionClientSchema = new mongoose.Schema({
     enum: ['horizontal_scroll', 'grid', 'list'],
     default: 'horizontal_scroll'
   },
+  serviceType: {
+    type: String,
+    enum: ['salon', 'athome'],
+    default: 'salon'
+  },
   services: {
     type: [sectionServiceSchema],
     default: []
@@ -66,6 +71,9 @@ appSectionClientSchema.index({ unitIds: 1, slug: 1 }, { unique: true });
 
 // Index for querying active sections by unit
 appSectionClientSchema.index({ unitIds: 1, isActive: 1, order: 1 });
+
+// Index for querying sections by service type
+appSectionClientSchema.index({ unitIds: 1, serviceType: 1, isActive: 1, order: 1 });
 
 appSectionClientSchema.plugin(mongoosePaginate);
 

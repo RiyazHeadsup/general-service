@@ -30,6 +30,16 @@ const appConfigSchema = new mongoose.Schema({
   showPrices: {
     type: Boolean,
     default: true
+  },
+  categoriesConfig: {
+    salon: {
+      title: { type: String, default: 'What do you want to do?' },
+      displayType: { type: String, enum: ['grid', 'horizontal_scroll', 'list'], default: 'grid' }
+    },
+    athome: {
+      title: { type: String, default: 'At Home Services' },
+      displayType: { type: String, enum: ['grid', 'horizontal_scroll', 'list'], default: 'grid' }
+    }
   }
 }, {
   timestamps: true

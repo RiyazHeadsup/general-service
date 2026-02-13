@@ -1,11 +1,12 @@
 const AppSectionClient = require('../models/AppSectionClient');
 const SalonChildService = require('../models/SalonChildService');
+const AtHomeChildService = require('../models/AtHomeChildService');
 
 class AppSectionClientController {
   // Create a new section
   async addAppSectionClient(req, res) {
     try {
-      const { unitIds, title, slug, description, order, isActive, gender, displayType, services } = req.body;
+      const { unitIds, title, slug, description, order, isActive, gender, displayType, services, serviceType } = req.body;
 
       if (!unitIds) {
         return res.status(400).json({ success: false, statusCode: 400, message: 'unitIds is required' });
@@ -17,8 +18,8 @@ class AppSectionClientController {
       // Generate slug from title if not provided
       const finalSlug = slug || title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/(^_|_$)/g, '');
 
-      // Check for duplicate slug in same unit
-      const existing = await AppSectionClient.findOne({ unitIds, slug: finalSlug });
+      // Check for duplicate slug in same unit and serviceType
+      const existing = await AppSectionClient.findOne({ unitIds, slug: finalSlug, serviceType: serviceType || 'salon' });
       if (existing) {
         return res.status(400).json({ success: false, statusCode: 400, message: 'Section with this slug already exists for this unit' });
       }
@@ -32,6 +33,7 @@ class AppSectionClientController {
         isActive: isActive !== false,
         gender: gender || 'all',
         displayType: displayType || 'horizontal_scroll',
+        serviceType: serviceType || 'salon',
         services: services || []
       });
 
@@ -51,17 +53,27 @@ class AppSectionClientController {
   // Search/list sections
   async searchAppSectionClient(req, res) {
     try {
+      // Preprocess search to handle legacy sections without serviceType field
+      const search = { ...(req.body.search || {}) };
+      const requestedServiceType = search.serviceType;
+      if (search.serviceType === 'salon') {
+        search.serviceType = { $in: ['salon', null] };
+      }
+
+      // Use correct model for populate based on serviceType
+      const populateModel = requestedServiceType === 'athome' ? 'AtHomeChildService' : 'SalonChildService';
+
       const options = {
         page: parseInt(req.body.page) || 1,
         limit: parseInt(req.body.limit) || 50,
         sort: req.body.sort || { order: 1, createdAt: -1 },
         populate: req.body.populate || [
           { path: 'unitIds', select: 'unitName unitCode' },
-          { path: 'services.serviceId', select: 'name price img service_time gender' }
+          { path: 'services.serviceId', model: populateModel, select: 'name price img service_time gender' }
         ]
       };
 
-      const result = await AppSectionClient.paginate(req.body.search || {}, options);
+      const result = await AppSectionClient.paginate(search, options);
       res.json({ success: true, statusCode: 200, data: result });
     } catch (error) {
       res.status(500).json({ success: false, statusCode: 500, error: error.message });
@@ -132,15 +144,16 @@ class AppSectionClientController {
         return res.status(400).json({ success: false, statusCode: 400, message: 'serviceId is required' });
       }
 
-      // Verify service exists
-      const service = await SalonChildService.findById(serviceId);
-      if (!service) {
-        return res.status(404).json({ success: false, statusCode: 404, message: 'Service not found' });
-      }
-
       const section = await AppSectionClient.findById(sectionId);
       if (!section) {
         return res.status(404).json({ success: false, statusCode: 404, message: 'Section not found' });
+      }
+
+      // Verify service exists in the correct model based on serviceType
+      const ServiceModel = section.serviceType === 'athome' ? AtHomeChildService : SalonChildService;
+      const service = await ServiceModel.findById(serviceId);
+      if (!service) {
+        return res.status(404).json({ success: false, statusCode: 404, message: 'Service not found' });
       }
 
       // Check if service already exists in section
@@ -283,7 +296,7 @@ class AppSectionClientController {
   // CLIENT API: Get active sections with populated services
   async getClientSections(req, res) {
     try {
-      const { unitId, gender } = req.body;
+      const { unitId, gender, serviceType } = req.body;
 
       if (!unitId) {
         return res.status(400).json({ success: false, statusCode: 400, message: 'unitId is required' });
@@ -295,6 +308,14 @@ class AppSectionClientController {
         isActive: true
       };
 
+      // Filter by serviceType if provided
+      // Legacy sections (created before serviceType was added) don't have this field — treat them as 'salon'
+      if (serviceType === 'salon') {
+        query.serviceType = { $in: ['salon', null] };
+      } else if (serviceType) {
+        query.serviceType = serviceType;
+      }
+
       // Filter by gender if provided
       if (gender && gender !== 'all') {
         query.$or = [
@@ -303,10 +324,14 @@ class AppSectionClientController {
         ];
       }
 
+      // Determine which model to populate from
+      const populateModel = serviceType === 'athome' ? 'AtHomeChildService' : 'SalonChildService';
+
       const sections = await AppSectionClient.find(query)
         .sort({ order: 1 })
         .populate({
           path: 'services.serviceId',
+          model: populateModel,
           select: 'name price member_price img service_time gender childDesc'
         })
         .lean();

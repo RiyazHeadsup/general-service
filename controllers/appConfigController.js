@@ -76,6 +76,9 @@ class AppConfigController {
       if (showPrices !== undefined) {
         updateData.showPrices = showPrices;
       }
+      if (req.body.categoriesConfig !== undefined) {
+        updateData.categoriesConfig = req.body.categoriesConfig;
+      }
 
       // Find and update, or create if not exists (upsert)
       const appConfig = await AppConfig.findOneAndUpdate(

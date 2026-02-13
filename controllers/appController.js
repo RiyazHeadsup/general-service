@@ -1,5 +1,7 @@
 const SalonParent = require('../models/SalonParent');
 const SalonChildService = require('../models/SalonChildService');
+const AtHomeParent = require('../models/AtHomeParent');
+const AtHomeChildService = require('../models/AtHomeChildService');
 const General = require('../models/General');
 const AppBanner = require('../models/AppBanner');
 const AppSectionClient = require('../models/AppSectionClient');
@@ -31,23 +33,29 @@ class AppController {
 
   async getHome(req, res) {
     try {
-      const { unitId, gender } = req.body;
+      const { unitId, gender, serviceType } = req.body;
 
       if (!unitId) {
         return res.status(400).json({ success: false, statusCode: 400, message: 'unitId is required' });
       }
 
-      const salonParents = await SalonParent.find({ unitIds: unitId }).lean();
+      // Select the correct models based on serviceType
+      const isAtHome = serviceType === 'athome';
+      const ParentModel = isAtHome ? AtHomeParent : SalonParent;
+      const ChildModel = isAtHome ? AtHomeChildService : SalonChildService;
+
+      const parents = await ParentModel.find({ unitIds: unitId }).lean();
 
       let categories = [];
 
-      for (const parent of salonParents) {
+      for (const parent of parents) {
         const childQuery = { parentId: parent._id, unitIds: unitId };
         if (gender) {
-          childQuery.gender = gender;
+          // Include services with matching gender OR no gender set (backwards compatibility)
+          childQuery.gender = { $in: [gender, null] };
         }
 
-        const childCount = await SalonChildService.countDocuments(childQuery);
+        const childCount = await ChildModel.countDocuments(childQuery);
 
         if (childCount > 0) {
           categories.push({
@@ -103,6 +111,14 @@ class AppController {
         isActive: true
       };
 
+      // Filter sections by serviceType
+      // Legacy sections (created before serviceType was added) don't have this field — treat them as 'salon'
+      if (serviceType === 'salon') {
+        sectionQuery.serviceType = { $in: ['salon', null] };
+      } else if (serviceType) {
+        sectionQuery.serviceType = serviceType;
+      }
+
       if (gender && gender !== 'all') {
         sectionQuery.$or = [
           { gender: 'all' },
@@ -110,10 +126,14 @@ class AppController {
         ];
       }
 
+      // Populate from the correct model based on serviceType
+      const populateModel = isAtHome ? 'AtHomeChildService' : 'SalonChildService';
+
       const activeSections = await AppSectionClient.find(sectionQuery)
         .sort({ order: 1 })
         .populate({
           path: 'services.serviceId',
+          model: populateModel,
           select: 'name price member_price img service_time gender childDesc'
         })
         .lean();
@@ -166,7 +186,8 @@ class AppController {
 
       const childQuery = { parentId, unitIds: unitId };
       if (gender) {
-        childQuery.gender = gender;
+        // Include services with matching gender OR no gender set (backwards compatibility)
+        childQuery.gender = { $in: [gender, null] };
       }
 
       const childServices = await SalonChildService.find(childQuery).lean();
