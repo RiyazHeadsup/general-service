@@ -74,6 +74,11 @@ const unitSchema = new mongoose.Schema({
     type: Number,
     min: -180,
     max: 180
+  },
+  serviceGroupId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Group',
+    required: false
   }
 }, { timestamps: true });
 
