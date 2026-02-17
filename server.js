@@ -37,8 +37,11 @@ const appRoutes = require('./routes/appRoutes');
 const appBannerRoutes = require('./routes/appBannerRoutes');
 const appConfigRoutes = require('./routes/appConfigRoutes');
 const appSectionClientRoutes = require('./routes/appSectionClientRoutes');
-const paymentMethodRoutes = require('./routes/paymentMethodRoutes');
-
+const categoryRoutes = require('./routes/categoryRoutes');
+const subCategoryRoutes = require('./routes/subCategoryRoutes');
+const serviceRoutes = require('./routes/serviceRoutes');
+const inventoryTransactionRoutes = require('./routes/inventoryTransactionRoutes');
+const groupRoutes = require('./routes/groupRoutes');
 
 const app = express();
 const PORT = parseInt(process.env.PORT) || 3003;
@@ -84,7 +87,11 @@ app.use('/', atHomeChildServiceRoutes);
 app.use('/', appBannerRoutes);
 app.use('/', appConfigRoutes);
 app.use('/', appSectionClientRoutes);
-app.use('/', paymentMethodRoutes);
+app.use('/', categoryRoutes);
+app.use('/', subCategoryRoutes);
+app.use('/', serviceRoutes);
+app.use('/', inventoryTransactionRoutes);
+app.use('/', groupRoutes);
 app.use('/app', appRoutes);
 
 async function startServer() {

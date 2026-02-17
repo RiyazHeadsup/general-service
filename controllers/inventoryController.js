@@ -1,16 +1,68 @@
 const Inventory = require('../models/Inventory');
+const InventoryTransaction = require('../models/InventoryTransaction');
 
 class InventoryController {
   async createInventory(req, res) {
     try {
-      const inventory = new Inventory(req.body);
-      await inventory.save();
-      res.status(200).json({
-        success: true,
-        message: "inventory created successfully",
-        statusCode: 201,
-        data: inventory
-      });
+      const { productId, qty, unitIds, createdBy } = req.body;
+
+      // Check if inventory already exists for this product and unit
+      const existingInventory = await Inventory.findOne({ productId, unitIds });
+
+      if (existingInventory) {
+        const previousQty = existingInventory.qty || 0;
+        const newQty = previousQty + (qty || 0);
+
+        // Update existing inventory - add to current qty
+        existingInventory.qty = newQty;
+        await existingInventory.save();
+
+        // Create transaction record
+        await InventoryTransaction.create({
+          inventoryId: existingInventory._id,
+          productId,
+          unitIds,
+          transactionType: 'IN',
+          qty: qty || 0,
+          previousQty,
+          newQty,
+          reason: 'Stock added to existing inventory',
+          referenceType: 'MANUAL',
+          createdBy
+        });
+
+        res.status(200).json({
+          success: true,
+          message: "Inventory updated successfully",
+          statusCode: 200,
+          data: existingInventory
+        });
+      } else {
+        // Create new inventory
+        const inventory = new Inventory(req.body);
+        await inventory.save();
+
+        // Create transaction record
+        await InventoryTransaction.create({
+          inventoryId: inventory._id,
+          productId,
+          unitIds,
+          transactionType: 'IN',
+          qty: qty || 0,
+          previousQty: 0,
+          newQty: qty || 0,
+          reason: 'Initial inventory created',
+          referenceType: 'MANUAL',
+          createdBy
+        });
+
+        res.status(200).json({
+          success: true,
+          message: "Inventory created successfully",
+          statusCode: 201,
+          data: inventory
+        });
+      }
     } catch (error) {
       res.status(400).json({ error: error.message });
     }
@@ -36,16 +88,40 @@ class InventoryController {
 
   async updateInventory(req, res) {
     try {
-      const { _id } = req.body;
+      const { _id, qty, createdBy } = req.body;
       if (!_id) {
         return res.status(400).json({ error: 'Inventory ID is required' });
       }
-      
-      const inventory = await Inventory.findByIdAndUpdate(_id, req.body, { new: true });
-      if (!inventory) {
+
+      // Get current inventory for transaction record
+      const currentInventory = await Inventory.findById(_id);
+      if (!currentInventory) {
         return res.status(404).json({ error: 'Inventory not found' });
       }
-      res.json({ statusCode: 200, data: inventory });
+
+      const previousQty = currentInventory.qty || 0;
+      const newQty = qty || 0;
+      const qtyDiff = newQty - previousQty;
+
+      const inventory = await Inventory.findByIdAndUpdate(_id, req.body, { new: true });
+
+      // Create transaction record if qty changed
+      if (qtyDiff !== 0) {
+        await InventoryTransaction.create({
+          inventoryId: inventory._id,
+          productId: inventory.productId,
+          unitIds: inventory.unitIds,
+          transactionType: qtyDiff > 0 ? 'IN' : 'OUT',
+          qty: Math.abs(qtyDiff),
+          previousQty,
+          newQty,
+          reason: 'Inventory manually updated',
+          referenceType: 'MANUAL',
+          createdBy
+        });
+      }
+
+      res.json({ statusCode: 200, success: true, data: inventory });
     } catch (error) {
       res.status(400).json({ error: error.message });
     }
@@ -61,7 +137,7 @@ class InventoryController {
       if (!inventory) {
         return res.status(404).json({ error: 'Inventory not found' });
       }
-      res.json({ statusCode: 200, message: 'Inventory deleted successfully' });
+      res.json({ statusCode: 200, success: true, message: 'Inventory deleted successfully' });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
