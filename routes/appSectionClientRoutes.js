@@ -14,6 +14,10 @@ router.post('/addServiceToSection', appSectionClientController.addServiceToSecti
 router.post('/removeServiceFromSection', appSectionClientController.removeServiceFromSection);
 router.post('/reorderSectionServices', appSectionClientController.reorderSectionServices);
 
+// Category management within sections
+router.post('/addCategoryToSection', appSectionClientController.addCategoryToSection);
+router.post('/removeCategoryFromSection', appSectionClientController.removeCategoryFromSection);
+
 // Section ordering and visibility
 router.post('/reorderSections', appSectionClientController.reorderSections);
 router.post('/toggleSectionVisibility', appSectionClientController.toggleSectionVisibility);

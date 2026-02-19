@@ -4,8 +4,12 @@ const appConfigSchema = new mongoose.Schema({
   unitIds: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Unit',
-    required: true,
-    unique: true
+    required: true
+  },
+  projectId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ConfigProject',
+    required: true
   },
   maintenanceMode: {
     enabled: {
@@ -34,5 +38,8 @@ const appConfigSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+// Compound unique index for unit and project
+appConfigSchema.index({ unitIds: 1, projectId: 1 }, { unique: true });
 
 module.exports = mongoose.model('AppConfig', appConfigSchema);

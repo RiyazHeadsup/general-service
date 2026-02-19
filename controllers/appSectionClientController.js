@@ -1,14 +1,19 @@
 const AppSectionClient = require('../models/AppSectionClient');
 const SalonChildService = require('../models/SalonChildService');
+const Category = require('../models/Category');
+const SubCategory = require('../models/SubCategory');
 
 class AppSectionClientController {
   // Create a new section
   async addAppSectionClient(req, res) {
     try {
-      const { unitIds, title, slug, description, order, isActive, gender, displayType, services } = req.body;
+      const { unitIds, projectId, title, slug, description, order, isActive, gender, displayType, serviceType, services, sectionType, categories } = req.body;
 
       if (!unitIds) {
         return res.status(400).json({ success: false, statusCode: 400, message: 'unitIds is required' });
+      }
+      if (!projectId) {
+        return res.status(400).json({ success: false, statusCode: 400, message: 'projectId is required' });
       }
       if (!title) {
         return res.status(400).json({ success: false, statusCode: 400, message: 'title is required' });
@@ -17,14 +22,15 @@ class AppSectionClientController {
       // Generate slug from title if not provided
       const finalSlug = slug || title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/(^_|_$)/g, '');
 
-      // Check for duplicate slug in same unit
-      const existing = await AppSectionClient.findOne({ unitIds, slug: finalSlug });
+      // Check for duplicate slug in same unit and project
+      const existing = await AppSectionClient.findOne({ unitIds, projectId, slug: finalSlug });
       if (existing) {
-        return res.status(400).json({ success: false, statusCode: 400, message: 'Section with this slug already exists for this unit' });
+        return res.status(400).json({ success: false, statusCode: 400, message: 'Section with this slug already exists for this unit and project' });
       }
 
       const section = new AppSectionClient({
         unitIds,
+        projectId,
         title,
         slug: finalSlug,
         description: description || '',
@@ -32,7 +38,10 @@ class AppSectionClientController {
         isActive: isActive !== false,
         gender: gender || 'all',
         displayType: displayType || 'horizontal_scroll',
-        services: services || []
+        serviceType: serviceType || '',
+        services: services || [],
+        sectionType: sectionType || 'services',
+        categories: categories || []
       });
 
       await section.save();
@@ -57,7 +66,10 @@ class AppSectionClientController {
         sort: req.body.sort || { order: 1, createdAt: -1 },
         populate: req.body.populate || [
           { path: 'unitIds', select: 'unitName unitCode' },
-          { path: 'services.serviceId', select: 'name price img service_time gender' }
+          { path: 'projectId', select: 'name description' },
+          { path: 'services.serviceId', select: 'name price img service_time gender' },
+          { path: 'categories.categoryId', select: 'name img' },
+          { path: 'categories.subCategoryId', select: 'name img' }
         ]
       };
 
@@ -78,9 +90,11 @@ class AppSectionClientController {
 
       // If slug is being updated, check for duplicates
       if (req.body.slug) {
+        const currentSection = await AppSectionClient.findById(_id);
         const existing = await AppSectionClient.findOne({
           _id: { $ne: _id },
-          unitIds: req.body.unitIds,
+          unitIds: req.body.unitIds || currentSection?.unitIds,
+          projectId: req.body.projectId || currentSection?.projectId,
           slug: req.body.slug
         });
         if (existing) {
@@ -227,6 +241,121 @@ class AppSectionClientController {
       await section.populate('services.serviceId', 'name price img service_time gender');
 
       res.json({ success: true, statusCode: 200, message: 'Services reordered successfully', data: section });
+    } catch (error) {
+      res.status(500).json({ success: false, statusCode: 500, error: error.message });
+    }
+  }
+
+  // Add category to section
+  async addCategoryToSection(req, res) {
+    try {
+      const { sectionId, categoryId, subCategoryId, itemType, order } = req.body;
+
+      if (!sectionId) {
+        return res.status(400).json({ success: false, statusCode: 400, message: 'sectionId is required' });
+      }
+      if (!itemType || !['category', 'subcategory'].includes(itemType)) {
+        return res.status(400).json({ success: false, statusCode: 400, message: 'itemType must be "category" or "subcategory"' });
+      }
+      if (itemType === 'category' && !categoryId) {
+        return res.status(400).json({ success: false, statusCode: 400, message: 'categoryId is required for category type' });
+      }
+      if (itemType === 'subcategory' && !subCategoryId) {
+        return res.status(400).json({ success: false, statusCode: 400, message: 'subCategoryId is required for subcategory type' });
+      }
+
+      // Verify category/subcategory exists
+      if (itemType === 'category') {
+        const category = await Category.findById(categoryId);
+        if (!category) {
+          return res.status(404).json({ success: false, statusCode: 404, message: 'Category not found' });
+        }
+      } else {
+        const subCategory = await SubCategory.findById(subCategoryId);
+        if (!subCategory) {
+          return res.status(404).json({ success: false, statusCode: 404, message: 'SubCategory not found' });
+        }
+      }
+
+      const section = await AppSectionClient.findById(sectionId);
+      if (!section) {
+        return res.status(404).json({ success: false, statusCode: 404, message: 'Section not found' });
+      }
+
+      // Check if already exists in section
+      const existingIndex = section.categories.findIndex(c => {
+        if (itemType === 'category') {
+          return c.categoryId?.toString() === categoryId && c.itemType === 'category';
+        }
+        return c.subCategoryId?.toString() === subCategoryId && c.itemType === 'subcategory';
+      });
+
+      if (existingIndex !== -1) {
+        return res.status(400).json({ success: false, statusCode: 400, message: 'This item already exists in the section' });
+      }
+
+      // Add category with order
+      const newOrder = order !== undefined ? order : section.categories.length;
+      const categoryItem = {
+        itemType,
+        order: newOrder
+      };
+      if (itemType === 'category') {
+        categoryItem.categoryId = categoryId;
+      } else {
+        categoryItem.subCategoryId = subCategoryId;
+        if (categoryId) categoryItem.categoryId = categoryId;
+      }
+
+      section.categories.push(categoryItem);
+      await section.save();
+
+      // Populate and return
+      await section.populate([
+        { path: 'categories.categoryId', select: 'name img' },
+        { path: 'categories.subCategoryId', select: 'name img' }
+      ]);
+
+      res.json({ success: true, statusCode: 200, message: 'Category added to section', data: section });
+    } catch (error) {
+      res.status(500).json({ success: false, statusCode: 500, error: error.message });
+    }
+  }
+
+  // Remove category from section
+  async removeCategoryFromSection(req, res) {
+    try {
+      const { sectionId, categoryId, subCategoryId, itemType } = req.body;
+
+      if (!sectionId) {
+        return res.status(400).json({ success: false, statusCode: 400, message: 'sectionId is required' });
+      }
+      if (!itemType || !['category', 'subcategory'].includes(itemType)) {
+        return res.status(400).json({ success: false, statusCode: 400, message: 'itemType must be "category" or "subcategory"' });
+      }
+
+      const section = await AppSectionClient.findById(sectionId);
+      if (!section) {
+        return res.status(404).json({ success: false, statusCode: 404, message: 'Section not found' });
+      }
+
+      // Remove category
+      section.categories = section.categories.filter(c => {
+        if (itemType === 'category') {
+          return !(c.categoryId?.toString() === categoryId && c.itemType === 'category');
+        }
+        return !(c.subCategoryId?.toString() === subCategoryId && c.itemType === 'subcategory');
+      });
+
+      await section.save();
+
+      // Populate and return
+      await section.populate([
+        { path: 'categories.categoryId', select: 'name img' },
+        { path: 'categories.subCategoryId', select: 'name img' }
+      ]);
+
+      res.json({ success: true, statusCode: 200, message: 'Category removed from section', data: section });
     } catch (error) {
       res.status(500).json({ success: false, statusCode: 500, error: error.message });
     }

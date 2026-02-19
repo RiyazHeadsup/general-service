@@ -1,10 +1,10 @@
 const AppConfig = require('../models/AppConfig');
 
 class AppConfigController {
-  // Get app config for a unit (create default if not exists)
+  // Get app config for a unit and project (create default if not exists)
   async getAppConfig(req, res) {
     try {
-      const { unitIds } = req.body;
+      const { unitIds, projectId } = req.body;
 
       if (!unitIds) {
         return res.status(400).json({
@@ -14,13 +14,22 @@ class AppConfigController {
         });
       }
 
+      if (!projectId) {
+        return res.status(400).json({
+          success: false,
+          statusCode: 400,
+          message: 'projectId is required'
+        });
+      }
+
       // Find existing config or create default
-      let appConfig = await AppConfig.findOne({ unitIds });
+      let appConfig = await AppConfig.findOne({ unitIds, projectId });
 
       if (!appConfig) {
-        // Create default config for the unit
+        // Create default config for the unit and project
         appConfig = new AppConfig({
           unitIds,
+          projectId,
           maintenanceMode: {
             enabled: false,
             message: 'We are currently under maintenance. Please check back soon.'
@@ -48,10 +57,10 @@ class AppConfigController {
     }
   }
 
-  // Update app config for a unit
+  // Update app config for a unit and project
   async updateAppConfig(req, res) {
     try {
-      const { unitIds, maintenanceMode, bannerControl, bookingEnabled, showPrices } = req.body;
+      const { unitIds, projectId, maintenanceMode, bannerControl, bookingEnabled, showPrices } = req.body;
 
       if (!unitIds) {
         return res.status(400).json({
@@ -61,8 +70,16 @@ class AppConfigController {
         });
       }
 
+      if (!projectId) {
+        return res.status(400).json({
+          success: false,
+          statusCode: 400,
+          message: 'projectId is required'
+        });
+      }
+
       // Build update object
-      const updateData = {};
+      const updateData = { projectId };
 
       if (maintenanceMode !== undefined) {
         updateData.maintenanceMode = maintenanceMode;
@@ -79,7 +96,7 @@ class AppConfigController {
 
       // Find and update, or create if not exists (upsert)
       const appConfig = await AppConfig.findOneAndUpdate(
-        { unitIds },
+        { unitIds, projectId },
         { $set: updateData },
         { new: true, upsert: true, setDefaultsOnInsert: true }
       );

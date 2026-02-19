@@ -7,6 +7,11 @@ const appBannerSchema = new mongoose.Schema({
     ref: 'Unit',
     required: true
   },
+  projectId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ConfigProject',
+    required: true
+  },
   title: {
     type: String,
     required: true,

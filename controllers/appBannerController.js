@@ -3,10 +3,13 @@ const AppBanner = require('../models/AppBanner');
 class AppBannerController {
   async addAppBanner(req, res) {
     try {
-      const { unitIds, title, imageUrl } = req.body;
+      const { unitIds, projectId, title, imageUrl } = req.body;
 
       if (!unitIds) {
         return res.status(400).json({ success: false, statusCode: 400, message: 'unitIds is required' });
+      }
+      if (!projectId) {
+        return res.status(400).json({ success: false, statusCode: 400, message: 'projectId is required' });
       }
       if (!title) {
         return res.status(400).json({ success: false, statusCode: 400, message: 'title is required' });
@@ -36,7 +39,8 @@ class AppBannerController {
         limit: parseInt(req.body.limit) || 10,
         sort: req.body.sort || { order: 1, createdAt: -1 },
         populate: req.body.populate || [
-          { path: 'unitIds', select: 'unitName unitCode' }
+          { path: 'unitIds', select: 'unitName unitCode' },
+          { path: 'projectId', select: 'name description' }
         ]
       };
       const result = await AppBanner.paginate(req.body.search || {}, options);

@@ -46,6 +46,7 @@ const productGroupRoutes = require('./routes/productGroupRoutes');
 const productCategoryRoutes = require('./routes/productCategoryRoutes');
 const productSubCategoryRoutes = require('./routes/productSubCategoryRoutes');
 const productBrandRoutes = require('./routes/productBrandRoutes');
+const configProjectRoutes = require('./routes/configProjectRoutes');
 
 const app = express();
 const PORT = parseInt(process.env.PORT) || 3003;
@@ -100,6 +101,7 @@ app.use('/', productGroupRoutes);
 app.use('/', productCategoryRoutes);
 app.use('/', productSubCategoryRoutes);
 app.use('/', productBrandRoutes);
+app.use('/', configProjectRoutes);
 app.use('/app', appRoutes);
 
 async function startServer() {
