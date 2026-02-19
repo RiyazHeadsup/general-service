@@ -4,7 +4,7 @@ const mongoosePaginate = require('mongoose-paginate-v2');
 const sectionServiceSchema = new mongoose.Schema({
   serviceId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'SalonChildService',
+    ref: 'Service',
     required: true
   },
   order: {

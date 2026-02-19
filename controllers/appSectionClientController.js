@@ -1,5 +1,5 @@
 const AppSectionClient = require('../models/AppSectionClient');
-const SalonChildService = require('../models/SalonChildService');
+const Service = require('../models/Service');
 const Category = require('../models/Category');
 const SubCategory = require('../models/SubCategory');
 
@@ -147,7 +147,7 @@ class AppSectionClientController {
       }
 
       // Verify service exists
-      const service = await SalonChildService.findById(serviceId);
+      const service = await Service.findById(serviceId);
       if (!service) {
         return res.status(404).json({ success: false, statusCode: 404, message: 'Service not found' });
       }
