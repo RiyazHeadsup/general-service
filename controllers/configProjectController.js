@@ -96,7 +96,7 @@ class ConfigProjectController {
 
   async deleteConfigProject(req, res) {
     try {
-      const { _id } = req.body;
+      const { _id, forceDelete } = req.body;
       if (!_id) {
         return res.status(400).json({ success: false, statusCode: 400, message: 'ConfigProject ID is required' });
       }
@@ -109,13 +109,23 @@ class ConfigProjectController {
       ]);
 
       const totalAssociated = bannersCount + sectionsCount + configCount;
-      if (totalAssociated > 0) {
+
+      if (totalAssociated > 0 && !forceDelete) {
         return res.status(400).json({
           success: false,
           statusCode: 400,
-          message: `Cannot delete project. It has ${bannersCount} banners, ${sectionsCount} sections, and ${configCount > 0 ? 'app config' : 'no config'} associated with it. Please delete or move these items first.`,
+          message: `Cannot delete project. It has ${bannersCount} banners, ${sectionsCount} sections, and ${configCount > 0 ? 'app config' : 'no config'} associated with it. Please delete or move these items first, or use forceDelete to remove all.`,
           data: { bannersCount, sectionsCount, configCount }
         });
+      }
+
+      // If forceDelete, delete all associated data first
+      if (forceDelete && totalAssociated > 0) {
+        await Promise.all([
+          AppBanner.deleteMany({ projectId: _id }),
+          AppSectionClient.deleteMany({ projectId: _id }),
+          AppConfig.deleteMany({ projectId: _id })
+        ]);
       }
 
       const configProject = await ConfigProject.findByIdAndDelete(_id);
@@ -123,7 +133,13 @@ class ConfigProjectController {
         return res.status(404).json({ success: false, statusCode: 404, message: 'ConfigProject not found' });
       }
 
-      res.json({ success: true, statusCode: 200, message: 'ConfigProject deleted successfully' });
+      res.json({
+        success: true,
+        statusCode: 200,
+        message: forceDelete && totalAssociated > 0
+          ? `ConfigProject and all associated data deleted successfully (${bannersCount} banners, ${sectionsCount} sections, ${configCount} configs)`
+          : 'ConfigProject deleted successfully'
+      });
     } catch (error) {
       res.status(500).json({ success: false, statusCode: 500, error: error.message });
     }

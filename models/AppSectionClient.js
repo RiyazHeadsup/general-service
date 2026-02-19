@@ -100,8 +100,8 @@ const appSectionClientSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Compound index for unique slug per unit and project
-appSectionClientSchema.index({ unitIds: 1, projectId: 1, slug: 1 }, { unique: true });
+// Compound index for slug per unit and project (non-unique to allow duplicates)
+appSectionClientSchema.index({ unitIds: 1, projectId: 1, slug: 1 });
 
 // Index for querying active sections by unit
 appSectionClientSchema.index({ unitIds: 1, isActive: 1, order: 1 });
