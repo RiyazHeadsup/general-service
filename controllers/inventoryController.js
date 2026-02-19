@@ -1,21 +1,37 @@
 const Inventory = require('../models/Inventory');
 const InventoryTransaction = require('../models/InventoryTransaction');
+const Service = require('../models/Service');
+const Product = require('../models/Product');
 
 class InventoryController {
   async createInventory(req, res) {
     try {
       const { productId, qty, unitIds, createdBy } = req.body;
 
-      // Check if inventory already exists for this product and unit
+      // Check if inventory already exists for this product and unit (including inactive)
       const existingInventory = await Inventory.findOne({ productId, unitIds });
 
       if (existingInventory) {
         const previousQty = existingInventory.qty || 0;
         const newQty = previousQty + (qty || 0);
+        const wasInactive = existingInventory.isActive === false;
 
-        // Update existing inventory - add to current qty
+        // Update existing inventory - add to current qty and reactivate if inactive
         existingInventory.qty = newQty;
+        existingInventory.isActive = true;
         await existingInventory.save();
+
+        // If inventory was inactive, reactivate product and associated services
+        if (wasInactive) {
+          // Reactivate product
+          await Product.findByIdAndUpdate(productId, { isActive: true });
+
+          // Reactivate associated services
+          await Service.updateMany(
+            { productId: productId },
+            { isActive: true }
+          );
+        }
 
         // Create transaction record
         await InventoryTransaction.create({
@@ -26,14 +42,14 @@ class InventoryController {
           qty: qty || 0,
           previousQty,
           newQty,
-          reason: 'Stock added to existing inventory',
+          reason: wasInactive ? 'Inventory reactivated and stock added' : 'Stock added to existing inventory',
           referenceType: 'MANUAL',
           createdBy
         });
 
         res.status(200).json({
           success: true,
-          message: "Inventory updated successfully",
+          message: wasInactive ? "Inventory reactivated successfully" : "Inventory updated successfully",
           statusCode: 200,
           data: existingInventory
         });

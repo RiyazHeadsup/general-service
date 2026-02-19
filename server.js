@@ -42,6 +42,10 @@ const subCategoryRoutes = require('./routes/subCategoryRoutes');
 const serviceRoutes = require('./routes/serviceRoutes');
 const inventoryTransactionRoutes = require('./routes/inventoryTransactionRoutes');
 const groupRoutes = require('./routes/groupRoutes');
+const productGroupRoutes = require('./routes/productGroupRoutes');
+const productCategoryRoutes = require('./routes/productCategoryRoutes');
+const productSubCategoryRoutes = require('./routes/productSubCategoryRoutes');
+const productBrandRoutes = require('./routes/productBrandRoutes');
 
 const app = express();
 const PORT = parseInt(process.env.PORT) || 3003;
@@ -92,6 +96,10 @@ app.use('/', subCategoryRoutes);
 app.use('/', serviceRoutes);
 app.use('/', inventoryTransactionRoutes);
 app.use('/', groupRoutes);
+app.use('/', productGroupRoutes);
+app.use('/', productCategoryRoutes);
+app.use('/', productSubCategoryRoutes);
+app.use('/', productBrandRoutes);
 app.use('/app', appRoutes);
 
 async function startServer() {

@@ -78,8 +78,41 @@ const productSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Unit',
     required: false
-  }
-}, { 
+  },
+  productBrandId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ProductBrand',
+    required: false
+  },
+  productSubCategoryId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ProductSubCategory',
+    required: false
+  },
+  productCategoryId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ProductCategory',
+    required: false
+  },
+  productGroupId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ProductGroup',
+    required: false
+  },
+  productParentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Product',
+    required: false
+  },
+  isTransferred: {
+    type: Boolean,
+    default: false
+  },
+  groupUsing: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ProductGroup'
+  }]
+}, {
   timestamps: true
 });
 

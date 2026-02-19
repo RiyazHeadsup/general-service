@@ -46,6 +46,10 @@ const inventorySchema = new mongoose.Schema({
   inventoryBill: {
     type: String,
     trim: true
+  },
+  isActive: {
+    type: Boolean,
+    default: true
   }
 }, { 
   timestamps: true,
