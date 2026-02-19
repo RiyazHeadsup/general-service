@@ -47,6 +47,7 @@ const productCategoryRoutes = require('./routes/productCategoryRoutes');
 const productSubCategoryRoutes = require('./routes/productSubCategoryRoutes');
 const productBrandRoutes = require('./routes/productBrandRoutes');
 const configProjectRoutes = require('./routes/configProjectRoutes');
+const paymentMethodRoutes = require('./routes/paymentMethodRoutes');
 
 const app = express();
 const PORT = parseInt(process.env.PORT) || 3003;
@@ -102,6 +103,7 @@ app.use('/', productCategoryRoutes);
 app.use('/', productSubCategoryRoutes);
 app.use('/', productBrandRoutes);
 app.use('/', configProjectRoutes);
+app.use('/', paymentMethodRoutes);
 app.use('/app', appRoutes);
 
 async function startServer() {
@@ -218,8 +220,10 @@ async function startServer() {
       console.log(`   POST /searchAtHomeChild - Search at home child services`);
       console.log(`   POST /updateAtHomeChild - Update at home child service`);
       console.log(`   POST /deleteAtHomeChild - Delete at home child service`);
-
-
+      console.log(`   POST /addPaymentMethod - Create new payment method`);
+      console.log(`   POST /searchPaymentMethod - Search payment methods`);
+      console.log(`   POST /updatePaymentMethod - Update payment method`);
+      console.log(`   POST /deletePaymentMethod - Delete payment method`);
 
       await consulConfig.registerService();
     });
