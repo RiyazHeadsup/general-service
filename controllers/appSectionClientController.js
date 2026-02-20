@@ -7,7 +7,7 @@ class AppSectionClientController {
   // Create a new section
   async addAppSectionClient(req, res) {
     try {
-      const { unitIds, projectId, title, slug, description, order, isActive, gender, displayType, serviceType, services, sectionType, categories } = req.body;
+      const { unitIds, projectId, title, slug, description, order, isActive, gender, displayType, serviceType, image, services, sectionType, categories } = req.body;
 
       if (!unitIds) {
         return res.status(400).json({ success: false, statusCode: 400, message: 'unitIds is required' });
@@ -39,6 +39,7 @@ class AppSectionClientController {
         gender: gender || 'all',
         displayType: displayType || 'horizontal_scroll',
         serviceType: serviceType || '',
+        image: image || undefined,
         services: services || [],
         sectionType: sectionType || 'services',
         categories: categories || []

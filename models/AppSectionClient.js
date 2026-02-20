@@ -83,6 +83,10 @@ const appSectionClientSchema = new mongoose.Schema({
     trim: true,
     default: ''
   },
+  image: {
+    type: String,
+    trim: true
+  },
   services: {
     type: [sectionServiceSchema],
     default: []
