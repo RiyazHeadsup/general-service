@@ -15,6 +15,18 @@ const socialLinkSchema = new mongoose.Schema({
   url: { type: String, trim: true, default: '' }
 }, { _id: false });
 
+const footerQuickLinkSchema = new mongoose.Schema({
+  label: { type: String, trim: true, default: '' },
+  href:  { type: String, trim: true, default: '' }
+}, { _id: false });
+
+const customPageSchema = new mongoose.Schema({
+  id:   { type: String, trim: true },
+  name: { type: String, trim: true, default: '' },
+  link: { type: String, trim: true, default: '' },
+  html: { type: String, default: '' }
+}, { _id: false });
+
 const websiteConfigSchema = new mongoose.Schema({
   unitIds: {
     type: mongoose.Schema.Types.ObjectId,
@@ -61,8 +73,15 @@ const websiteConfigSchema = new mongoose.Schema({
       { platform: 'twitter', url: '' },
       { platform: 'youtube', url: '' }
     ]},
-    copyrightText: { type: String, default: 'Elevate Salon. All rights reserved.' }
+    copyrightText: { type: String, default: 'Elevate Salon. All rights reserved.' },
+    quickLinks: { type: [footerQuickLinkSchema], default: [] }
   },
+
+  // Custom pages (created from Pages Editor — shown as footer Quick Links)
+  customPages: { type: [customPageSchema], default: [] },
+
+  // Built-in page HTML overrides (about_us, contact_us, privacy_policy, etc.)
+  pages: { type: mongoose.Schema.Types.Mixed, default: {} },
 
   // Maintenance
   maintenanceMode: {

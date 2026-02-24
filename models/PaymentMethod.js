@@ -2,6 +2,11 @@ const mongoose = require('mongoose');
 const mongoosePaginate = require('mongoose-paginate-v2');
 
 const paymentMethodSchema = new mongoose.Schema({
+  projectId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ConfigProject',
+    required: true
+  },
   name: {
     type: String,
     required: true,
