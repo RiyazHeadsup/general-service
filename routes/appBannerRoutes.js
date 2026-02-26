@@ -7,6 +7,6 @@ const router = express.Router();
 router.post('/addAppBanner', appBannerController.addAppBanner);
 router.post('/searchAppBanner', appBannerController.searchAppBanner);
 router.post('/updateAppBanner', appBannerController.updateAppBanner);
-router.post('/deleteAppBanner', appBannerController.deleteAppBanner);
+router.post('/deleteAppBanner', appBannerController.deleteAppBanner);//
 
 module.exports = router;
