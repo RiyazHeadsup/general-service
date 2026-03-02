@@ -25,11 +25,32 @@ const ratioSchema = new mongoose.Schema({
     required: false,
     trim: true
   },
+  productId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Product',
+    required: false
+  },
+  productName: {
+    type: String,
+    required: false,
+    trim: true
+  },
+  brand: {
+    type: String,
+    required: false,
+    trim: true
+  },
   percentage: {
     type: Number,
     required: false,
     min: 0,
     max: 100
+  },
+  developer: {
+    type: Number,
+    required: false,
+    default: 0,
+    min: 0
   }
 }, { _id: false });
 

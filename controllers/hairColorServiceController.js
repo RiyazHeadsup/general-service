@@ -35,15 +35,22 @@ const searchHairColorService = async (req, res) => {
       category,
       gender,
       unitIds,
+      _id,
       populate
     } = req.body;
 
     const query = {};
 
+    if (_id) {
+      query._id = _id;
+    }
+
     if (search) {
       query.$or = [
         { serviceName: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } }
+        { description: { $regex: search, $options: 'i' } },
+        { 'ratios.productName': { $regex: search, $options: 'i' } },
+        { 'ratios.brand': { $regex: search, $options: 'i' } }
       ];
     }
 
@@ -63,7 +70,7 @@ const searchHairColorService = async (req, res) => {
       query.unitIds = unitIds;
     }
 
-    const defaultPopulate = ['unitIds'];
+    const defaultPopulate = ['unitIds', { path: 'ratios.productId', select: 'productName brand productImageUrl' }];
     const options = {
       page: parseInt(page),
       limit: parseInt(limit),
