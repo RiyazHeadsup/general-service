@@ -70,7 +70,7 @@ const searchHairColorService = async (req, res) => {
       query.unitIds = unitIds;
     }
 
-    const defaultPopulate = ['unitIds', { path: 'ratios.productId', select: 'productName brand productImageUrl' }];
+    const defaultPopulate = ['unitIds', { path: 'ratios.productId', select: 'productName brand productImageUrl productGroupId productCategoryId productSubCategoryId productBrandId' }];
     const options = {
       page: parseInt(page),
       limit: parseInt(limit),
