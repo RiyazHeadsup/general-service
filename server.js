@@ -245,7 +245,7 @@ async function startServer() {
   }
 }
 
-// Graceful shutdown
+// //Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('🛑 Shutting down general service...');
   await consulConfig.deregisterService();
