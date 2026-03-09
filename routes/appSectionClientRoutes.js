@@ -3,7 +3,7 @@ const appSectionClientController = require('../controllers/appSectionClientContr
 
 const router = express.Router();
 
-// Admin CRUD routes
+// /// Admin CRUD routes
 router.post('/addAppSectionClient', appSectionClientController.addAppSectionClient);
 router.post('/searchAppSectionClient', appSectionClientController.searchAppSectionClient);
 router.post('/updateAppSectionClient', appSectionClientController.updateAppSectionClient);
