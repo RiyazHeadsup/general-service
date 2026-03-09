@@ -4,8 +4,7 @@ const mongoosePaginate = require('mongoose-paginate-v2');
 const serviceFollowupItemSchema = new mongoose.Schema({
   serviceId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'ChildService',
-    required: true
+    ref: 'Service'
   },
   originalPrice: {
     type: String,

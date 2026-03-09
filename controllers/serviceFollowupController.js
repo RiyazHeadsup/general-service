@@ -41,8 +41,8 @@ class ServiceFollowupController {
           })
           .populate({
             path: 'serviceFollowup.serviceId',
-            model: 'ChildService',
-            select: 'name price member_price service_time img childDesc parentId'
+            model: 'Service',
+            select: 'name price member_price service_time img description'
           })
           .sort(sort)
           .skip(skip)
@@ -111,7 +111,7 @@ class ServiceFollowupController {
         .populate('clientId', 'name email phoneNumber gender img address customerType totalVisit unpaidAmt')
         .populate('followupBy', 'name email phoneNumber gender img roleId')
         .populate('unitId', 'unitName unitCode address phone email')
-        .populate('serviceFollowup.serviceId', 'name price member_price service_time img childDesc parentId');
+        .populate('serviceFollowup.serviceId', 'name price member_price service_time img description');
 
       if (!serviceFollowup) {
         return res.status(404).json({ error: 'ServiceFollowup not found' });
@@ -128,7 +128,7 @@ class ServiceFollowupController {
         .populate('clientId', 'name email phoneNumber gender img address customerType totalVisit unpaidAmt')
         .populate('followupBy', 'name email phoneNumber gender img roleId')
         .populate('unitId', 'unitName unitCode address phone email')
-        .populate('serviceFollowup.serviceId', 'name price member_price service_time img childDesc parentId')
+        .populate('serviceFollowup.serviceId', 'name price member_price service_time img description')
         .sort({ createdAt: -1 });
       res.json({ statusCode: 200, data: serviceFollowups });
     } catch (error) {
