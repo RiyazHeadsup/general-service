@@ -51,6 +51,7 @@ const paymentMethodRoutes = require('./routes/paymentMethodRoutes');
 const websiteConfigRoutes = require('./routes/websiteConfigRoutes');
 const websiteSectionRoutes = require('./routes/websiteSectionRoutes');
 const addressRoutes = require('./routes/addressRoutes');
+const hairColorServiceRoutes = require('./routes/hairColorServiceRoutes');
 
 const app = express();
 const PORT = parseInt(process.env.PORT) || 3003;
@@ -110,6 +111,7 @@ app.use('/', paymentMethodRoutes);
 app.use('/', websiteConfigRoutes);
 app.use('/', websiteSectionRoutes);
 app.use('/', addressRoutes);
+app.use('/', hairColorServiceRoutes);
 app.use('/app', appRoutes);
 
 async function startServer() {
@@ -230,6 +232,10 @@ async function startServer() {
       console.log(`   POST /searchPaymentMethod - Search payment methods`);
       console.log(`   POST /updatePaymentMethod - Update payment method`);
       console.log(`   POST /deletePaymentMethod - Delete payment method`);
+      console.log(`   POST /addHairColorService - Create new hair color service`);
+      console.log(`   POST /searchHairColorService - Search hair color services`);
+      console.log(`   POST /updateHairColorService - Update hair color service`);
+      console.log(`   POST /deleteHairColorService - Delete hair color service`);
 
       await consulConfig.registerService();
     });
