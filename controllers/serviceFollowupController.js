@@ -73,12 +73,12 @@ class ServiceFollowupController {
 
   async updateServiceFollowup(req, res) {
     try {
-      const { _id } = req.body;
+      const { _id, ...updateData } = req.body;
       if (!_id) {
         return res.status(400).json({ error: 'ServiceFollowup ID is required' });
       }
 
-      const serviceFollowup = await ServiceFollowup.findByIdAndUpdate(_id, req.body, { new: true });
+      const serviceFollowup = await ServiceFollowup.findByIdAndUpdate(_id, updateData, { new: true });
       if (!serviceFollowup) {
         return res.status(404).json({ error: 'ServiceFollowup not found' });
       }
