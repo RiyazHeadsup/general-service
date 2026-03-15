@@ -52,6 +52,7 @@ const websiteConfigRoutes = require('./routes/websiteConfigRoutes');
 const websiteSectionRoutes = require('./routes/websiteSectionRoutes');
 const addressRoutes = require('./routes/addressRoutes');
 const hairColorServiceRoutes = require('./routes/hairColorServiceRoutes');
+const feedbackRoutes = require('./routes/feedbackRoutes');
 
 const app = express();
 const PORT = parseInt(process.env.PORT) || 3003;
@@ -112,6 +113,7 @@ app.use('/', websiteConfigRoutes);
 app.use('/', websiteSectionRoutes);
 app.use('/', addressRoutes);
 app.use('/', hairColorServiceRoutes);
+app.use('/', feedbackRoutes);
 app.use('/app', appRoutes);
 
 async function startServer() {
