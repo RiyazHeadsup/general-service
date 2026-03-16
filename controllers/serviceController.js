@@ -1,6 +1,7 @@
 const Service = require('../models/Service');
 const Category = require('../models/Category');
 const SubCategory = require('../models/SubCategory');
+const Fuse = require('fuse.js');
 
 // Create Service
 const addService = async (req, res) => {
@@ -32,7 +33,8 @@ const searchService = async (req, res) => {
       limit = 10,
       search = {},
       sort,
-      populate
+      populate,
+      fuzzySearch
     } = req.body;
 
     const defaultPopulate = ['categoryId', 'subCategoryId', 'unitIds', 'staffIds', 'serviceParentId', 'productId', { path: 'inventoryId', select: 'qty stockIn stockOut status' }];
@@ -43,6 +45,66 @@ const searchService = async (req, res) => {
       populate: populate || defaultPopulate
     };
 
+    // Fuzzy search mode: fetch all matching services in the group, then fuzzy filter by name
+    if (fuzzySearch) {
+      const { text, groupId, ...otherFilters } = fuzzySearch;
+      const query = { ...otherFilters };
+      if (groupId) query.groupId = groupId;
+
+      // Fetch all services in the group (no name filter)
+      const allServices = await Service.find(query)
+        .populate(options.populate)
+        .sort(options.sort)
+        .lean();
+
+      if (!text || text.trim().length < 2) {
+        // No search text, return paginated results
+        const start = (parseInt(page) - 1) * parseInt(limit);
+        const paginatedDocs = allServices.slice(start, start + parseInt(limit));
+        return res.status(200).json({
+          success: true,
+          statusCode: 200,
+          message: 'Services fetched successfully',
+          data: {
+            docs: paginatedDocs,
+            totalDocs: allServices.length,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            totalPages: Math.ceil(allServices.length / parseInt(limit)),
+          }
+        });
+      }
+
+      // Fuzzy match using fuse.js
+      const fuse = new Fuse(allServices, {
+        keys: ['name'],
+        threshold: 0.4,
+        distance: 100,
+        includeScore: true,
+      });
+
+      const fuseResults = fuse.search(text.trim());
+      const matchedDocs = fuseResults.map(r => r.item);
+
+      // Paginate fuzzy results
+      const start = (parseInt(page) - 1) * parseInt(limit);
+      const paginatedDocs = matchedDocs.slice(start, start + parseInt(limit));
+
+      return res.status(200).json({
+        success: true,
+        statusCode: 200,
+        message: 'Services fetched successfully',
+        data: {
+          docs: paginatedDocs,
+          totalDocs: matchedDocs.length,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages: Math.ceil(matchedDocs.length / parseInt(limit)),
+        }
+      });
+    }
+
+    // Standard regex search (existing behavior)
     const services = await Service.paginate(search, options);
 
     res.status(200).json({

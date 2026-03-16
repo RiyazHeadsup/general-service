@@ -1,5 +1,5 @@
 # Use official Node.js runtime as base image
-FROM node:18-alpine
+FROM node:20-alpine
 
 # Install curl for health checks
 RUN apk add --no-cache curl
@@ -13,10 +13,9 @@ RUN addgroup -g 1001 -S nodejs && \
 
 # Copy package files and install dependencies as root
 COPY package*.json ./
-COPY yarn.lock ./
 
-# Install dependencies using yarn
-RUN yarn install --frozen-lockfile --production && yarn cache clean --all
+# Install dependencies using npm
+RUN npm install --production && npm cache clean --force
 
 # Copy application code
 COPY . .
@@ -27,10 +26,10 @@ RUN chown -R nodejs:nodejs /app
 # Switch to non-root user
 USER nodejs
 
-# Expose port (assuming general service runs on 3003)
+# Expose port
 EXPOSE 3003
 
-# Health check (adjust endpoint if different)
+# Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:3003/health || exit 1
 

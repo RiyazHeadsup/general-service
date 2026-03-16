@@ -50,6 +50,9 @@ const configProjectRoutes = require('./routes/configProjectRoutes');
 const paymentMethodRoutes = require('./routes/paymentMethodRoutes');
 const websiteConfigRoutes = require('./routes/websiteConfigRoutes');
 const websiteSectionRoutes = require('./routes/websiteSectionRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const staffRoutes = require('./routes/staffRoutes');
+const staffReviewRoutes = require('./routes/staffReviewRoutes');
 
 const app = express();
 const PORT = parseInt(process.env.PORT) || 3003;
@@ -108,6 +111,9 @@ app.use('/', configProjectRoutes);
 app.use('/', paymentMethodRoutes);
 app.use('/', websiteConfigRoutes);
 app.use('/', websiteSectionRoutes);
+app.use('/', notificationRoutes);
+app.use('/', staffRoutes);
+app.use('/', staffReviewRoutes);
 app.use('/app', appRoutes);
 
 async function startServer() {
