@@ -53,6 +53,9 @@ const websiteSectionRoutes = require('./routes/websiteSectionRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const staffRoutes = require('./routes/staffRoutes');
 const staffReviewRoutes = require('./routes/staffReviewRoutes');
+const addressRoutes = require('./routes/addressRoutes');
+const hairColorServiceRoutes = require('./routes/hairColorServiceRoutes');
+const feedbackRoutes = require('./routes/feedbackRoutes');
 
 const app = express();
 const PORT = parseInt(process.env.PORT) || 3003;
@@ -114,6 +117,9 @@ app.use('/', websiteSectionRoutes);
 app.use('/', notificationRoutes);
 app.use('/', staffRoutes);
 app.use('/', staffReviewRoutes);
+app.use('/', addressRoutes);
+app.use('/', hairColorServiceRoutes);
+app.use('/', feedbackRoutes);
 app.use('/app', appRoutes);
 
 async function startServer() {
@@ -234,6 +240,10 @@ async function startServer() {
       console.log(`   POST /searchPaymentMethod - Search payment methods`);
       console.log(`   POST /updatePaymentMethod - Update payment method`);
       console.log(`   POST /deletePaymentMethod - Delete payment method`);
+      console.log(`   POST /addHairColorService - Create new hair color service`);
+      console.log(`   POST /searchHairColorService - Search hair color services`);
+      console.log(`   POST /updateHairColorService - Update hair color service`);
+      console.log(`   POST /deleteHairColorService - Delete hair color service`);
 
       await consulConfig.registerService();
     });
@@ -243,7 +253,7 @@ async function startServer() {
   }
 }
 
-// Graceful shutdown
+// //Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('🛑 Shutting down general service...');
   await consulConfig.deregisterService();
