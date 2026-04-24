@@ -44,7 +44,7 @@ const attendanceSchema = new mongoose.Schema({
   },
   userId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'Staff',
     required: false
   },
   unitIds: {

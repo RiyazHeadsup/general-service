@@ -58,11 +58,20 @@ const searchSubCategory = async (req, res) => {
     }
 
     if (unitIds) {
-      query.unitIds = { $in: Array.isArray(unitIds) ? unitIds : [unitIds] };
+      const mongoose = require('mongoose');
+      const ids = Array.isArray(unitIds) ? unitIds : [unitIds];
+      const allIds = ids.flatMap(id => { try { return [new mongoose.Types.ObjectId(id), id] } catch { return [id] } });
+      query.unitIds = { $in: allIds };
     }
 
     if (groupId) {
-      query.groupId = groupId;
+      const groupCondition = { $or: [{ groupId: groupId }, { groupUsing: groupId }] };
+      if (query.$or) {
+        query.$and = [{ $or: query.$or }, groupCondition];
+        delete query.$or;
+      } else {
+        Object.assign(query, groupCondition);
+      }
     }
 
     const defaultPopulate = ['categoryId', 'unitIds', { path: 'groupUsing', select: 'name' }];

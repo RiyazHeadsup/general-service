@@ -85,6 +85,22 @@ const unitSchema = new mongoose.Schema({
     ref: 'Group',
     required: false
   },
+  maxDiscountPercentage: {
+    type: Number,
+    default: 100,
+    min: 0,
+    max: 100
+  },
+  openingTime: {
+    type: String,
+    trim: true,
+    default: '10:00'
+  },
+  closingTime: {
+    type: String,
+    trim: true,
+    default: '21:00'
+  },
   appMaintenanceMode: {
     type: Boolean,
     default: false

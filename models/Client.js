@@ -10,9 +10,7 @@ const clientSchema = new mongoose.Schema({
   phoneNumber: {
     type: String,
     required: true,
-    trim: true,
-    unique: true,
-    index: true
+    trim: true
   },
   gender: {
     type: String,
@@ -81,12 +79,26 @@ const clientSchema = new mongoose.Schema({
     type: String,
     required: false,
     trim: true
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  deletedAt: {
+    type: Date
+  },
+  deleteReason: {
+    type: String,
+    trim: true
   }
-}, { 
+}, {
   timestamps: true,
   collection: 'clients'
 });
 
 clientSchema.plugin(mongoosePaginate);
+
+// Unique per unit - same phone allowed in different units
+clientSchema.index({ phoneNumber: 1, unitIds: 1 }, { unique: true });
 
 module.exports = mongoose.model('Client', clientSchema);

@@ -19,7 +19,49 @@ const staffSchema = new mongoose.Schema({
     trim: true,
     lowercase: true
   },
+  staffCode: {
+    type: String,
+    trim: true
+  },
+  designation: {
+    type: String,
+    trim: true
+  },
   gender: {
+    type: String,
+    trim: true
+  },
+  type: {
+    type: String,
+    trim: true,
+    default: 'Employee'
+  },
+  dob: {
+    type: String,
+    trim: true
+  },
+  dateOfJoining: {
+    type: String,
+    trim: true
+  },
+  salary: {
+    type: String,
+    trim: true
+  },
+  workingHoursPerDay: {
+    type: String,
+    trim: true,
+    default: '9'
+  },
+  weekOff: [{
+    type: String,
+    enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+  }],
+  loginUsername: {
+    type: String,
+    trim: true
+  },
+  loginPassword: {
     type: String,
     trim: true
   },
@@ -56,10 +98,6 @@ const staffSchema = new mongoose.Schema({
     trim: true
   },
   addressProof: {
-    type: String,
-    trim: true
-  },
-  dob: {
     type: String,
     trim: true
   },

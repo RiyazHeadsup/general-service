@@ -13,9 +13,14 @@ class StaffController {
         return res.status(400).json({ success: false, statusCode: 400, message: 'Phone number is required' });
       }
 
-      const existing = await Staff.findOne({ phoneNumber });
+      // Check duplicate per unit
+      const unitIds = req.body.unitIds || [];
+      const unitId = Array.isArray(unitIds) ? unitIds[0] : unitIds;
+      const dupeQuery = { phoneNumber };
+      if (unitId) dupeQuery.unitIds = unitId;
+      const existing = await Staff.findOne(dupeQuery);
       if (existing) {
-        return res.status(409).json({ success: false, statusCode: 409, message: 'Staff with this phone number already exists' });
+        return res.status(409).json({ success: false, statusCode: 409, message: 'Staff with this phone number already exists in this unit' });
       }
 
       const staff = new Staff(req.body);

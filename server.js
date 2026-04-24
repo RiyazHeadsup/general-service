@@ -4,6 +4,7 @@ const DatabaseConfig = require('./config/database');
 const ConsulConfig = require('./config/consul');
 const unitRoutes = require('./routes/unitRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
+const staffAccountTransactionRoutes = require('./routes/staffAccountTransactionRoutes');
 const generalRoutes = require('./routes/generalRoutes');
 const parentServiceRoutes = require('./routes/parentServiceRoutes');
 const childServiceRoutes = require('./routes/childServiceRoutes');
@@ -56,6 +57,7 @@ const staffReviewRoutes = require('./routes/staffReviewRoutes');
 const addressRoutes = require('./routes/addressRoutes');
 const hairColorServiceRoutes = require('./routes/hairColorServiceRoutes');
 const feedbackRoutes = require('./routes/feedbackRoutes');
+const seedRoutes = require('./routes/seedRoutes');
 
 const app = express();
 const PORT = parseInt(process.env.PORT) || 3003;
@@ -70,6 +72,7 @@ const consulConfig = new ConsulConfig({
 
 app.use('/', unitRoutes);
 app.use('/', attendanceRoutes);
+app.use('/', staffAccountTransactionRoutes);
 app.use('/', generalRoutes);
 app.use('/', parentServiceRoutes);
 app.use('/', childServiceRoutes);
@@ -120,6 +123,7 @@ app.use('/', staffReviewRoutes);
 app.use('/', addressRoutes);
 app.use('/', hairColorServiceRoutes);
 app.use('/', feedbackRoutes);
+app.use('/', seedRoutes);
 app.use('/app', appRoutes);
 
 async function startServer() {

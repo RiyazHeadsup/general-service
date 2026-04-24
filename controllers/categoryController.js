@@ -53,11 +53,23 @@ const searchCategory = async (req, res) => {
     }
 
     if (unitIds) {
-      query.unitIds = { $in: Array.isArray(unitIds) ? unitIds : [unitIds] };
+      const mongoose = require('mongoose');
+      const ids = Array.isArray(unitIds) ? unitIds : [unitIds];
+      // Match both ObjectId and string formats
+      const allIds = ids.flatMap(id => { try { return [new mongoose.Types.ObjectId(id), id] } catch { return [id] } });
+      query.unitIds = { $in: allIds };
     }
 
     if (groupId) {
-      query.groupId = groupId;
+      // Match categories by groupId or groupUsing (imported categories use groupUsing)
+      const groupCondition = { $or: [{ groupId: groupId }, { groupUsing: groupId }] };
+      if (query.$or) {
+        // Combine with existing $or (text search) using $and
+        query.$and = [{ $or: query.$or }, groupCondition];
+        delete query.$or;
+      } else {
+        Object.assign(query, groupCondition);
+      }
     }
 
     const defaultPopulate = ['unitIds', { path: 'groupId', select: 'name img' }, { path: 'groupUsing', select: 'name' }];
