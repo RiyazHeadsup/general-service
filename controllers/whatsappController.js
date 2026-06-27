@@ -1,7 +1,17 @@
 const WhatsappConfig = require('../models/WhatsappConfig');
 const WhatsappOptIn = require('../models/WhatsappOptIn');
+const WhatsappBillSend = require('../models/WhatsappBillSend');
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
+
+// Format a phone number to E.164 digits (no +). Prepends country code if local.
+function formatPhone(raw, cc) {
+  let d = String(raw == null ? '' : raw).replace(/[^\d]/g, '');
+  if (!d) return '';
+  d = d.replace(/^0+/, '');
+  if (cc && d.length <= 10) d = String(cc).replace(/[^\d]/g, '') + d;
+  return d;
+}
 
 // Strip the access token before sending config to the client.
 function publicConfig(cfg) {
@@ -74,6 +84,73 @@ class WhatsappController {
       res.json({ statusCode: 200, data: result });
     } catch (error) {
       res.status(500).json({ statusCode: 500, error: error.message });
+    }
+  }
+
+  // ── Send a bill receipt (UTILITY template) to a customer ─
+  async sendBill(req, res) {
+    try {
+      const { phone, name, billNumber, date, services, amount, wallet } = req.body;
+      if (!phone) return res.status(400).json({ statusCode: 400, error: 'phone is required' });
+
+      const cfg = await WhatsappConfig.findOne({ key: 'default' });
+      if (!cfg || !cfg.token || !cfg.phoneNumberId) {
+        return res.status(400).json({ statusCode: 400, error: 'WhatsApp is not configured' });
+      }
+
+      const to = formatPhone(phone, cfg.defaultCountryCode);
+      if (!to || to.length < 8) return res.status(400).json({ statusCode: 400, error: 'Invalid phone number' });
+
+      const templateName = req.body.templateName || 'bill_receipt_v2';
+      const lang = req.body.languageCode || 'en';
+      const vals = [name, billNumber, date, services, amount, wallet];
+      const parameters = vals.map((v) => ({ type: 'text', text: String(v == null || v === '' ? '-' : v) }));
+
+      const body = {
+        messaging_product: 'whatsapp',
+        to,
+        type: 'template',
+        template: { name: templateName, language: { code: lang }, components: [{ type: 'body', parameters }] },
+      };
+
+      const r = await fetch(`${GRAPH}/${cfg.phoneNumberId}/messages`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${cfg.token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.error) {
+        return res.status(400).json({ statusCode: 400, error: j.error ? j.error.message : 'Send failed' });
+      }
+      const messageId = j.messages && j.messages[0] && j.messages[0].id;
+
+      // Record that this bill was sent (so the panel can show "Already sent").
+      let sentAt = new Date();
+      if (req.body.billId) {
+        try {
+          const rec = await WhatsappBillSend.findOneAndUpdate(
+            { billId: String(req.body.billId) },
+            { $set: { billNumber: billNumber || '', phone: to, messageId: messageId || '', sentAt } },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+          );
+          sentAt = rec.sentAt;
+        } catch { /* ignore record errors — message already sent */ }
+      }
+      return res.json({ statusCode: 200, data: { id: messageId, to, sentAt } });
+    } catch (error) {
+      return res.status(500).json({ statusCode: 500, error: error.message });
+    }
+  }
+
+  // ── Has a bill already been sent on WhatsApp? ────────────
+  async billSentStatus(req, res) {
+    try {
+      const { billId } = req.body;
+      if (!billId) return res.json({ statusCode: 200, data: { sent: false } });
+      const rec = await WhatsappBillSend.findOne({ billId: String(billId) });
+      return res.json({ statusCode: 200, data: { sent: !!rec, sentAt: rec ? rec.sentAt : null } });
+    } catch (error) {
+      return res.status(500).json({ statusCode: 500, error: error.message });
     }
   }
 

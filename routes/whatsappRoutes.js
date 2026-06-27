@@ -6,6 +6,8 @@ const whatsappController = require('../controllers/whatsappController');
 router.post('/getWhatsappConfig', whatsappController.getWhatsappConfig);
 router.post('/saveWhatsappConfig', whatsappController.saveWhatsappConfig);
 router.post('/listWhatsappOptIns', whatsappController.listWhatsappOptIns);
+router.post('/sendWhatsappBill', whatsappController.sendBill);
+router.post('/whatsappBillSentStatus', whatsappController.billSentStatus);
 
 // Webhook (called by Meta — must be publicly reachable, no auth)
 router.get('/whatsappWebhook', whatsappController.verifyWebhook);
