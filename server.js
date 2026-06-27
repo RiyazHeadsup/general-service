@@ -58,6 +58,7 @@ const addressRoutes = require('./routes/addressRoutes');
 const hairColorServiceRoutes = require('./routes/hairColorServiceRoutes');
 const feedbackRoutes = require('./routes/feedbackRoutes');
 const seedRoutes = require('./routes/seedRoutes');
+const whatsappRoutes = require('./routes/whatsappRoutes');
 
 const app = express();
 const PORT = parseInt(process.env.PORT) || 3003;
@@ -124,6 +125,7 @@ app.use('/', addressRoutes);
 app.use('/', hairColorServiceRoutes);
 app.use('/', feedbackRoutes);
 app.use('/', seedRoutes);
+app.use('/', whatsappRoutes);
 app.use('/app', appRoutes);
 
 async function startServer() {
