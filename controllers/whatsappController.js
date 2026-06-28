@@ -1,6 +1,7 @@
 const WhatsappConfig = require('../models/WhatsappConfig');
 const WhatsappOptIn = require('../models/WhatsappOptIn');
 const WhatsappBillSend = require('../models/WhatsappBillSend');
+const Client = require('../models/Client');
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 
@@ -142,6 +143,67 @@ class WhatsappController {
     }
   }
 
+  // ── Send a MARKETING template to an opted-in client ──────
+  // No 24-hour window needed: marketing templates can be sent anytime to a
+  // client who has explicitly opted in. We enforce that consent server-side.
+  async sendMarketingMessage(req, res) {
+    try {
+      const { phone, templateName } = req.body;
+      if (!phone) return res.status(400).json({ statusCode: 400, error: 'phone is required' });
+      if (!templateName) return res.status(400).json({ statusCode: 400, error: 'templateName is required' });
+
+      // Compliance guard — only send to a client who gave marketing consent.
+      const last10 = String(phone).replace(/[^\d]/g, '').slice(-10);
+      if (last10.length !== 10) return res.status(400).json({ statusCode: 400, error: 'Invalid phone number' });
+      const client = await Client.findOne({
+        phoneNumber: { $regex: last10 + '$' },
+        whatsappOptIn: true,
+      });
+      if (!client) {
+        return res.status(403).json({
+          statusCode: 403,
+          error: 'This client has not opted in to WhatsApp marketing',
+        });
+      }
+
+      const cfg = await WhatsappConfig.findOne({ key: 'default' });
+      if (!cfg || !cfg.token || !cfg.phoneNumberId) {
+        return res.status(400).json({ statusCode: 400, error: 'WhatsApp is not configured' });
+      }
+
+      const to = formatPhone(phone, cfg.defaultCountryCode);
+      if (!to || to.length < 8) return res.status(400).json({ statusCode: 400, error: 'Invalid phone number' });
+
+      const lang = req.body.languageCode || 'en';
+      // Body variables are optional — many marketing templates have none.
+      const params = Array.isArray(req.body.params) ? req.body.params : [];
+      const components = params.length
+        ? [{ type: 'body', parameters: params.map((v) => ({ type: 'text', text: String(v == null || v === '' ? '-' : v) })) }]
+        : [];
+
+      const body = {
+        messaging_product: 'whatsapp',
+        to,
+        type: 'template',
+        template: { name: templateName, language: { code: lang }, components },
+      };
+
+      const r = await fetch(`${GRAPH}/${cfg.phoneNumberId}/messages`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${cfg.token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.error) {
+        return res.status(400).json({ statusCode: 400, error: j.error ? j.error.message : 'Send failed' });
+      }
+      const messageId = j.messages && j.messages[0] && j.messages[0].id;
+      return res.json({ statusCode: 200, data: { id: messageId, to, name: client.name, sentAt: new Date() } });
+    } catch (error) {
+      return res.status(500).json({ statusCode: 500, error: error.message });
+    }
+  }
+
   // ── Has a bill already been sent on WhatsApp? ────────────
   async billSentStatus(req, res) {
     try {
@@ -186,6 +248,20 @@ class WhatsappController {
           const contacts = value.contacts || [];
           const nameByWaId = {};
           for (const c of contacts) nameByWaId[c.wa_id] = c.profile?.name || '';
+
+          // Delivery receipts: sent → delivered → read, or failed (with reason).
+          // This is the ONLY place Meta tells us if a message actually landed.
+          for (const st of value.statuses || []) {
+            if (st.status === 'failed') {
+              const err = (st.errors && st.errors[0]) || {};
+              console.error(
+                `[WA][STATUS][FAILED] to=${st.recipient_id} id=${st.id} ` +
+                `code=${err.code || '?'} title="${err.title || ''}" detail="${err.error_data?.details || err.message || ''}"`
+              );
+            } else {
+              console.log(`[WA][STATUS] ${st.status} to=${st.recipient_id} id=${st.id}`);
+            }
+          }
 
           for (const msg of value.messages || []) {
             const phone = msg.from;

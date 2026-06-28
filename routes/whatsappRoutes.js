@@ -7,6 +7,7 @@ router.post('/getWhatsappConfig', whatsappController.getWhatsappConfig);
 router.post('/saveWhatsappConfig', whatsappController.saveWhatsappConfig);
 router.post('/listWhatsappOptIns', whatsappController.listWhatsappOptIns);
 router.post('/sendWhatsappBill', whatsappController.sendBill);
+router.post('/sendWhatsappMarketing', whatsappController.sendMarketingMessage);
 router.post('/whatsappBillSentStatus', whatsappController.billSentStatus);
 
 // Webhook (called by Meta — must be publicly reachable, no auth)
