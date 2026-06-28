@@ -38,7 +38,7 @@ class UnitController {
         return res.status(400).json({ error: 'Unit ID is required' });
       }
       
-      const unit = await Unit.findByIdAndUpdate(_id, req.body, { new: true });
+      const unit = await Unit.findByIdAndUpdate(_id, req.body, { new: true, runValidators: true });
       if (!unit) {
         return res.status(404).json({ error: 'Unit not found' });
       }

@@ -80,6 +80,26 @@ const clientSchema = new mongoose.Schema({
     required: false,
     trim: true
   },
+  dob: {
+    type: Date,
+    required: false
+  },
+  // WhatsApp marketing opt-in — consent proof for Meta/WhatsApp message policy.
+  whatsappOptIn: {
+    type: Boolean,
+    default: false
+  },
+  whatsappOptInText: {
+    type: String,
+    trim: true
+  },
+  whatsappOptInAt: {
+    type: Date
+  },
+  whatsappOptInSource: {
+    type: String,
+    trim: true
+  },
   isActive: {
     type: Boolean,
     default: true
