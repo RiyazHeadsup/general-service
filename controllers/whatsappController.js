@@ -28,6 +28,17 @@ async function getOrCreateConfig() {
   return cfg;
 }
 
+// Pull the BODY text out of a Meta template's components array.
+function templateBody(components) {
+  const body = (components || []).find((c) => String(c.type || '').toUpperCase() === 'BODY');
+  return body ? (body.text || '') : '';
+}
+
+// Normalise a template name to what Meta accepts (lowercase, digits, underscore).
+function normName(name) {
+  return String(name || '').trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+}
+
 class WhatsappController {
   // ── Config ───────────────────────────────────────────────
   async getWhatsappConfig(req, res) {
@@ -213,6 +224,144 @@ class WhatsappController {
       return res.json({ statusCode: 200, data: { sent: !!rec, sentAt: rec ? rec.sentAt : null } });
     } catch (error) {
       return res.status(500).json({ statusCode: 500, error: error.message });
+    }
+  }
+
+  // ── Message templates: list from Meta (with status & category) ──
+  async listTemplates(req, res) {
+    try {
+      const cfg = await WhatsappConfig.findOne({ key: 'default' });
+      if (!cfg || !cfg.token || !cfg.wabaId) {
+        return res.status(400).json({ statusCode: 400, error: 'WhatsApp is not configured' });
+      }
+      const fields = 'id,name,status,category,language,components';
+      let url = `${GRAPH}/${cfg.wabaId}/message_templates?fields=${fields}&limit=200&access_token=${encodeURIComponent(cfg.token)}`;
+      const all = [];
+      let guard = 0;
+      // A WABA can return templates across several pages — follow paging.next.
+      while (url && guard < 25) {
+        const r = await fetch(url);
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || j.error) {
+          return res.status(400).json({ statusCode: 400, error: j.error ? j.error.message : 'Failed to fetch templates' });
+        }
+        for (const t of j.data || []) {
+          all.push({
+            id: t.id,
+            name: t.name,
+            status: t.status,        // APPROVED | PENDING | REJECTED | PAUSED | DISABLED | ...
+            category: t.category,    // MARKETING | UTILITY | AUTHENTICATION
+            language: t.language,
+            body: templateBody(t.components),
+            components: t.components || [],
+          });
+        }
+        url = j.paging && j.paging.next ? j.paging.next : null;
+        guard++;
+      }
+      res.json({ statusCode: 200, data: all });
+    } catch (error) {
+      res.status(500).json({ statusCode: 500, error: error.message });
+    }
+  }
+
+  // ── Create a template (submitted to Meta → becomes PENDING) ──
+  async createTemplate(req, res) {
+    try {
+      const { name, body } = req.body;
+      if (!name || !body) return res.status(400).json({ statusCode: 400, error: 'name and body are required' });
+
+      const cfg = await WhatsappConfig.findOne({ key: 'default' });
+      if (!cfg || !cfg.token || !cfg.wabaId) {
+        return res.status(400).json({ statusCode: 400, error: 'WhatsApp is not configured' });
+      }
+
+      const component = { type: 'BODY', text: String(body) };
+      // Meta requires example values when the body has {{1}}, {{2}}, … placeholders.
+      if (Array.isArray(req.body.example) && req.body.example.length) {
+        component.example = { body_text: [req.body.example.map((v) => String(v == null ? '' : v))] };
+      }
+      const payload = {
+        name: normName(name),
+        category: String(req.body.category || 'MARKETING').toUpperCase(),
+        language: req.body.language || 'en',
+        components: [component],
+      };
+
+      const r = await fetch(`${GRAPH}/${cfg.wabaId}/message_templates`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${cfg.token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.error) {
+        return res.status(400).json({ statusCode: 400, error: j.error ? j.error.message : 'Create failed' });
+      }
+      res.json({ statusCode: 200, data: j });
+    } catch (error) {
+      res.status(500).json({ statusCode: 500, error: error.message });
+    }
+  }
+
+  // ── Edit a template (Meta edits by template id; name/language fixed) ──
+  async editTemplate(req, res) {
+    try {
+      const { id, body } = req.body;
+      if (!id) return res.status(400).json({ statusCode: 400, error: 'template id is required' });
+
+      const cfg = await WhatsappConfig.findOne({ key: 'default' });
+      if (!cfg || !cfg.token) {
+        return res.status(400).json({ statusCode: 400, error: 'WhatsApp is not configured' });
+      }
+
+      const payload = {};
+      if (req.body.category) payload.category = String(req.body.category).toUpperCase();
+      if (typeof body === 'string') {
+        const component = { type: 'BODY', text: body };
+        if (Array.isArray(req.body.example) && req.body.example.length) {
+          component.example = { body_text: [req.body.example.map((v) => String(v == null ? '' : v))] };
+        }
+        payload.components = [component];
+      }
+
+      const r = await fetch(`${GRAPH}/${id}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${cfg.token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.error) {
+        return res.status(400).json({ statusCode: 400, error: j.error ? j.error.message : 'Edit failed' });
+      }
+      res.json({ statusCode: 200, data: j });
+    } catch (error) {
+      res.status(500).json({ statusCode: 500, error: error.message });
+    }
+  }
+
+  // ── Delete a template by name (optionally a single id) ──
+  async deleteTemplate(req, res) {
+    try {
+      const { name, id } = req.body;
+      if (!name) return res.status(400).json({ statusCode: 400, error: 'template name is required' });
+
+      const cfg = await WhatsappConfig.findOne({ key: 'default' });
+      if (!cfg || !cfg.token || !cfg.wabaId) {
+        return res.status(400).json({ statusCode: 400, error: 'WhatsApp is not configured' });
+      }
+
+      let url = `${GRAPH}/${cfg.wabaId}/message_templates?name=${encodeURIComponent(name)}`;
+      if (id) url += `&hsm_id=${encodeURIComponent(id)}`;
+      url += `&access_token=${encodeURIComponent(cfg.token)}`;
+
+      const r = await fetch(url, { method: 'DELETE' });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.error) {
+        return res.status(400).json({ statusCode: 400, error: j.error ? j.error.message : 'Delete failed' });
+      }
+      res.json({ statusCode: 200, data: j });
+    } catch (error) {
+      res.status(500).json({ statusCode: 500, error: error.message });
     }
   }
 

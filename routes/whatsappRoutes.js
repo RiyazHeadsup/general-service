@@ -10,6 +10,12 @@ router.post('/sendWhatsappBill', whatsappController.sendBill);
 router.post('/sendWhatsappMarketing', whatsappController.sendMarketingMessage);
 router.post('/whatsappBillSentStatus', whatsappController.billSentStatus);
 
+// Message templates (synced from Meta)
+router.post('/listWhatsappTemplates', whatsappController.listTemplates);
+router.post('/createWhatsappTemplate', whatsappController.createTemplate);
+router.post('/editWhatsappTemplate', whatsappController.editTemplate);
+router.post('/deleteWhatsappTemplate', whatsappController.deleteTemplate);
+
 // Webhook (called by Meta — must be publicly reachable, no auth)
 router.get('/whatsappWebhook', whatsappController.verifyWebhook);
 router.post('/whatsappWebhook', whatsappController.receiveWebhook);
