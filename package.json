@@ -14,7 +14,8 @@
     "firebase-admin": "^13.7.0",
     "fuse.js": "^7.1.0",
     "mongoose": "^7.5.0",
-    "mongoose-paginate-v2": "^1.9.1"
+    "mongoose-paginate-v2": "^1.9.1",
+    "nodemailer": "^9.0.3"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
