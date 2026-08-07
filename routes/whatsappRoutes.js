@@ -12,6 +12,7 @@ router.post('/whatsappBillSentStatus', whatsappController.billSentStatus);
 
 // Message templates (synced from Meta)
 router.post('/listWhatsappTemplates', whatsappController.listTemplates);
+router.post('/uploadWhatsappTemplateMedia', whatsappController.uploadTemplateMedia);
 router.post('/createWhatsappTemplate', whatsappController.createTemplate);
 router.post('/editWhatsappTemplate', whatsappController.editTemplate);
 router.post('/deleteWhatsappTemplate', whatsappController.deleteTemplate);

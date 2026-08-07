@@ -14,6 +14,88 @@ function formatPhone(raw, cc) {
   return d;
 }
 
+// Upload a document to Meta and return its media id.
+// The panel sends the invoice as base64, so the PDF never has to be hosted on a
+// public URL — Meta keeps the media for ~30 days, long enough to deliver.
+async function uploadMedia(cfg, base64, filename, mimeType) {
+  const buf = Buffer.from(String(base64), 'base64');
+  if (!buf.length) throw new Error('Empty document');
+
+  const form = new FormData();
+  form.append('messaging_product', 'whatsapp');
+  form.append('type', mimeType);
+  form.append('file', new Blob([buf], { type: mimeType }), filename);
+
+  const r = await fetch(`${GRAPH}/${cfg.phoneNumberId}/media`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${cfg.token}` },
+    body: form,
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.error || !j.id) {
+    throw new Error(j.error ? j.error.message : 'Document upload failed');
+  }
+  return j.id;
+}
+
+// Media allowed in a template header, with Meta's per-type size ceiling.
+const HEADER_MEDIA = {
+  'video/mp4': { format: 'VIDEO', max: 16 * 1024 * 1024, ext: 'mp4' },
+  'video/3gpp': { format: 'VIDEO', max: 16 * 1024 * 1024, ext: '3gp' },
+  'image/jpeg': { format: 'IMAGE', max: 5 * 1024 * 1024, ext: 'jpg' },
+  'image/png': { format: 'IMAGE', max: 5 * 1024 * 1024, ext: 'png' },
+  'application/pdf': { format: 'DOCUMENT', max: 100 * 1024 * 1024, ext: 'pdf' },
+};
+
+// Upload a file through Meta's Resumable Upload API and return its file handle.
+//
+// A template's header media is fixed at creation time: Meta wants a *handle*
+// (not a media id) as the header example, and handles only come from this API.
+// It is a two-step dance — open a session against the App ID, then push the
+// bytes — and it is separate from the /media upload used when *sending*.
+async function uploadResumable(cfg, buf, mimeType, filename) {
+  if (!cfg.appId) {
+    throw new Error('App ID is missing — add it in WhatsApp Setup to upload template media');
+  }
+
+  const q = new URLSearchParams({
+    file_name: filename,
+    file_length: String(buf.length),
+    file_type: mimeType,
+    access_token: cfg.token,
+  });
+  const startRes = await fetch(`${GRAPH}/${cfg.appId}/uploads?${q}`, { method: 'POST' });
+  const start = await startRes.json().catch(() => ({}));
+  if (!startRes.ok || start.error || !start.id) {
+    throw new Error(start.error ? start.error.message : 'Could not start media upload');
+  }
+
+  // Single-shot transfer: our ceiling is 16 MB, well within one request.
+  const upRes = await fetch(`${GRAPH}/${start.id}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `OAuth ${cfg.token}`,
+      file_offset: '0',
+      'Content-Type': 'application/octet-stream',
+    },
+    body: buf,
+  });
+  const up = await upRes.json().catch(() => ({}));
+  if (!upRes.ok || up.error || !up.h) {
+    throw new Error(up.error ? up.error.message : 'Media upload failed');
+  }
+  return up.h;
+}
+
+// Build the HEADER component for a template definition (create/edit).
+function headerComponent(format, handle) {
+  return {
+    type: 'HEADER',
+    format: String(format).toUpperCase(),
+    example: { header_handle: [handle] },
+  };
+}
+
 // Strip the access token before sending config to the client.
 function publicConfig(cfg) {
   if (!cfg) return null;
@@ -115,14 +197,46 @@ class WhatsappController {
 
       const templateName = req.body.templateName || 'bill_receipt_v2';
       const lang = req.body.languageCode || 'en';
-      const vals = [name, billNumber, date, services, amount, wallet];
+      // `params` lets the panel drive a template with its own variable list
+      // (the PDF template takes just name + amount). Without it we fall back to
+      // the six positional variables of the original text-only template.
+      const vals = Array.isArray(req.body.params) && req.body.params.length
+        ? req.body.params
+        : [name, billNumber, date, services, amount, wallet];
       const parameters = vals.map((v) => ({ type: 'text', text: String(v == null || v === '' ? '-' : v) }));
+
+      const components = [];
+
+      // Optional PDF invoice in the template's document header.
+      if (req.body.documentBase64) {
+        const filename = req.body.documentFilename || `${billNumber || 'invoice'}.pdf`;
+        let mediaId;
+        try {
+          mediaId = await uploadMedia(cfg, req.body.documentBase64, filename, 'application/pdf');
+        } catch (e) {
+          return res.status(400).json({ statusCode: 400, error: e.message });
+        }
+        components.push({
+          type: 'header',
+          parameters: [{ type: 'document', document: { id: mediaId, filename } }],
+        });
+      } else if (req.body.documentUrl) {
+        components.push({
+          type: 'header',
+          parameters: [{
+            type: 'document',
+            document: { link: req.body.documentUrl, filename: req.body.documentFilename || 'invoice.pdf' },
+          }],
+        });
+      }
+
+      components.push({ type: 'body', parameters });
 
       const body = {
         messaging_product: 'whatsapp',
         to,
         type: 'template',
-        template: { name: templateName, language: { code: lang }, components: [{ type: 'body', parameters }] },
+        template: { name: templateName, language: { code: lang }, components },
       };
 
       const r = await fetch(`${GRAPH}/${cfg.phoneNumberId}/messages`, {
@@ -188,9 +302,26 @@ class WhatsappController {
       const lang = req.body.languageCode || 'en';
       // Body variables are optional — many marketing templates have none.
       const params = Array.isArray(req.body.params) ? req.body.params : [];
-      const components = params.length
-        ? [{ type: 'body', parameters: params.map((v) => ({ type: 'text', text: String(v == null || v === '' ? '-' : v) })) }]
-        : [];
+      const components = [];
+
+      // Media header — the template's handle only covers Meta's review sample,
+      // so every send has to carry the actual media. Callers pass a media id
+      // (from uploadTemplateMedia, reused across a campaign) or a public link.
+      const headerType = String(req.body.headerType || '').toLowerCase();
+      if (headerType && (req.body.headerMediaId || req.body.headerMediaUrl)) {
+        const media = req.body.headerMediaId
+          ? { id: req.body.headerMediaId }
+          : { link: req.body.headerMediaUrl };
+        if (headerType === 'document') media.filename = req.body.headerFilename || 'file.pdf';
+        components.push({ type: 'header', parameters: [{ type: headerType, [headerType]: media }] });
+      }
+
+      if (params.length) {
+        components.push({
+          type: 'body',
+          parameters: params.map((v) => ({ type: 'text', text: String(v == null || v === '' ? '-' : v) })),
+        });
+      }
 
       const body = {
         messaging_product: 'whatsapp',
@@ -265,6 +396,51 @@ class WhatsappController {
     }
   }
 
+  // ── Upload media for a template header ───────────────────
+  // Returns both ids the panel needs: `handle` to define the template (review
+  // sample) and `mediaId` to attach the real media on every send.
+  async uploadTemplateMedia(req, res) {
+    try {
+      const { fileBase64 } = req.body;
+      if (!fileBase64) return res.status(400).json({ statusCode: 400, error: 'fileBase64 is required' });
+
+      const mimeType = String(req.body.mimeType || 'video/mp4').toLowerCase();
+      const rules = HEADER_MEDIA[mimeType];
+      if (!rules) {
+        return res.status(400).json({
+          statusCode: 400,
+          error: `Unsupported file type ${mimeType}. Use MP4 video, JPEG/PNG image or PDF.`,
+        });
+      }
+
+      const buf = Buffer.from(String(fileBase64), 'base64');
+      if (!buf.length) return res.status(400).json({ statusCode: 400, error: 'Empty file' });
+      if (buf.length > rules.max) {
+        const mb = (n) => `${(n / (1024 * 1024)).toFixed(1)} MB`;
+        return res.status(400).json({
+          statusCode: 400,
+          error: `File is ${mb(buf.length)} — WhatsApp allows up to ${mb(rules.max)} for ${rules.format.toLowerCase()}. Please compress it.`,
+        });
+      }
+
+      const cfg = await WhatsappConfig.findOne({ key: 'default' });
+      if (!cfg || !cfg.token || !cfg.phoneNumberId) {
+        return res.status(400).json({ statusCode: 400, error: 'WhatsApp is not configured' });
+      }
+
+      const filename = req.body.filename || `header.${rules.ext}`;
+      const handle = await uploadResumable(cfg, buf, mimeType, filename);
+      const mediaId = await uploadMedia(cfg, fileBase64, filename, mimeType);
+
+      return res.json({
+        statusCode: 200,
+        data: { handle, mediaId, format: rules.format, mimeType, filename, size: buf.length },
+      });
+    } catch (error) {
+      return res.status(400).json({ statusCode: 400, error: error.message });
+    }
+  }
+
   // ── Create a template (submitted to Meta → becomes PENDING) ──
   async createTemplate(req, res) {
     try {
@@ -281,11 +457,20 @@ class WhatsappController {
       if (Array.isArray(req.body.example) && req.body.example.length) {
         component.example = { body_text: [req.body.example.map((v) => String(v == null ? '' : v))] };
       }
+
+      // Optional media header (video/image/document), uploaded beforehand via
+      // uploadTemplateMedia — the header must come before the body.
+      const components = [];
+      if (req.body.headerHandle && req.body.headerFormat) {
+        components.push(headerComponent(req.body.headerFormat, req.body.headerHandle));
+      }
+      components.push(component);
+
       const payload = {
         name: normName(name),
         category: String(req.body.category || 'MARKETING').toUpperCase(),
         language: req.body.language || 'en',
-        components: [component],
+        components,
       };
 
       const r = await fetch(`${GRAPH}/${cfg.wabaId}/message_templates`, {
@@ -321,7 +506,14 @@ class WhatsappController {
         if (Array.isArray(req.body.example) && req.body.example.length) {
           component.example = { body_text: [req.body.example.map((v) => String(v == null ? '' : v))] };
         }
-        payload.components = [component];
+        // Meta replaces the whole component list on edit, so a template that
+        // keeps its media header must resend it with a fresh handle.
+        const components = [];
+        if (req.body.headerHandle && req.body.headerFormat) {
+          components.push(headerComponent(req.body.headerFormat, req.body.headerHandle));
+        }
+        components.push(component);
+        payload.components = components;
       }
 
       const r = await fetch(`${GRAPH}/${id}`, {

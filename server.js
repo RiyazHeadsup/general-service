@@ -64,7 +64,10 @@ const mailRoutes = require('./routes/mailRoutes');
 const app = express();
 const PORT = parseInt(process.env.PORT) || 3003;
 
-app.use(express.json());
+// 32mb: base64-encoded attachments (invoice PDFs, mail attachments, WhatsApp
+// template header video) travel in the JSON body and blow past the 100kb
+// default. Base64 adds ~33%, so a 16mb video — WhatsApp's ceiling — needs ~22mb.
+app.use(express.json({ limit: '32mb' }));
 
 
 const database = new DatabaseConfig();
