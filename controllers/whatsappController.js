@@ -96,6 +96,29 @@ function headerComponent(format, handle) {
   };
 }
 
+// Inbound-message intent. Consent has to be started by the customer — a
+// wa.me link on the site or a QR at the counter opens WhatsApp with the text
+// already written, so we match on that phrase rather than on "any message":
+// "is my appointment at 5?" is not permission to market to someone.
+const CONSENT_PHRASES = [
+  'receive your latest offers',
+  'offers and updates on whatsapp',
+  'send me offers',
+  'yes, send me offers',
+];
+// Whole-message match, so "stop by tomorrow?" never unsubscribes anyone.
+const STOP_WORDS = ['stop', 'unsubscribe', 'optout', 'opt out', 'opt-out', 'band karo', 'band karein', 'mat bhejo', 'mat bhejein'];
+const START_WORDS = ['start', 'subscribe', 'optin', 'opt in', 'opt-in', 'resume', 'yes'];
+
+function consentIntent(text) {
+  const t = String(text || '').trim().toLowerCase().replace(/[.!,]+$/, '');
+  if (!t) return null;
+  if (STOP_WORDS.includes(t)) return 'stop';
+  if (START_WORDS.includes(t)) return 'start';
+  if (CONSENT_PHRASES.some((p) => t.includes(p))) return 'start';
+  return null;
+}
+
 // Strip the access token before sending config to the client.
 function publicConfig(cfg) {
   if (!cfg) return null;
@@ -628,6 +651,33 @@ class WhatsappController {
               },
               { upsert: true, new: true, setDefaultsOnInsert: true }
             );
+
+            // Customer-initiated consent (or opt-out) — the only kind Meta
+            // accepts for marketing. Store their own words as the proof.
+            const intent = consentIntent(text);
+            if (intent) {
+              const optIn = intent === 'start';
+              const last10 = String(phone).replace(/[^\d]/g, '').slice(-10);
+              if (last10.length === 10) {
+                const r = await Client.updateMany(
+                  { phoneNumber: { $regex: last10 + '$' } },
+                  {
+                    $set: {
+                      whatsappOptIn: optIn,
+                      whatsappOptInText: text,
+                      whatsappOptInAt: when,
+                      whatsappOptInSource: optIn ? 'whatsapp_inbound' : 'whatsapp_stop',
+                    },
+                  }
+                );
+                console.log(`[WA][CONSENT] ${intent} from=${phone} clientsUpdated=${r.modifiedCount}`);
+                // No client record yet (a website visitor who has never been
+                // billed): the WhatsappOptIn row above still holds the proof.
+                if (optIn && r.matchedCount === 0) {
+                  console.log(`[WA][CONSENT] no client for ${phone} — consent recorded, link it when they are billed`);
+                }
+              }
+            }
           }
         }
       }
