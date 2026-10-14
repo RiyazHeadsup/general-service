@@ -2,6 +2,7 @@ const Service = require('../models/Service');
 const Category = require('../models/Category');
 const SubCategory = require('../models/SubCategory');
 const Fuse = require('fuse.js');
+const { rankServices } = require('../services/serviceSearch');
 
 // Create Service
 const addService = async (req, res) => {
@@ -51,6 +52,8 @@ const searchService = async (req, res) => {
       const { text, groupId, ...otherFilters } = fuzzySearch;
       const query = { ...otherFilters };
       if (groupId) query.groupId = groupId;
+      // Customers search the live menu; inactive services stay hidden
+      if (query.isActive === undefined) query.isActive = { $ne: false };
 
       // Fetch all services in the group (no name filter)
       const allServices = await Service.find(query)
@@ -76,16 +79,13 @@ const searchService = async (req, res) => {
         });
       }
 
-      // Fuzzy match using fuse.js
-      const fuse = new Fuse(allServices, {
-        keys: ['name'],
-        threshold: 0.4,
-        distance: 100,
-        includeScore: true,
-      });
-
-      const fuseResults = fuse.search(text.trim());
-      const matchedDocs = fuseResults.map(r => r.item);
+      // Word-by-word ranking over name, subcategory and category; Fuse only
+      // when that finds nothing (very loose matches are better than none)
+      let matchedDocs = rankServices(allServices, text);
+      if (!matchedDocs.length) {
+        const fuse = new Fuse(allServices, { keys: ['name'], threshold: 0.4, distance: 100 });
+        matchedDocs = fuse.search(text.trim()).map(r => r.item);
+      }
 
       // Paginate fuzzy results
       const start = (parseInt(page) - 1) * parseInt(limit);
