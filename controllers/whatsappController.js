@@ -300,14 +300,17 @@ class WhatsappController {
       if (!phone) return res.status(400).json({ statusCode: 400, error: 'phone is required' });
       if (!templateName) return res.status(400).json({ statusCode: 400, error: 'templateName is required' });
 
-      // Compliance guard — only send to a client who gave marketing consent.
+      // Compliance guard — only send to someone who gave marketing consent.
+      // Consent counts from either side: a Client who ticked the box at
+      // login/signup, or a phone number that opted in over WhatsApp before it
+      // ever had a Client record.
       const last10 = String(phone).replace(/[^\d]/g, '').slice(-10);
       if (last10.length !== 10) return res.status(400).json({ statusCode: 400, error: 'Invalid phone number' });
-      const client = await Client.findOne({
-        phoneNumber: { $regex: last10 + '$' },
-        whatsappOptIn: true,
-      });
-      if (!client) {
+      const [client, optInRow] = await Promise.all([
+        Client.findOne({ phoneNumber: { $regex: last10 + '$' }, whatsappOptIn: true }),
+        WhatsappOptIn.findOne({ phone: { $regex: last10 + '$' }, optIn: true }),
+      ]);
+      if (!client && !optInRow) {
         return res.status(403).json({
           statusCode: 403,
           error: 'This client has not opted in to WhatsApp marketing',
@@ -363,7 +366,8 @@ class WhatsappController {
         return res.status(400).json({ statusCode: 400, error: j.error ? j.error.message : 'Send failed' });
       }
       const messageId = j.messages && j.messages[0] && j.messages[0].id;
-      return res.json({ statusCode: 200, data: { id: messageId, to, name: client.name, sentAt: new Date() } });
+      const recipientName = (client && client.name) || (optInRow && optInRow.name) || '';
+      return res.json({ statusCode: 200, data: { id: messageId, to, name: recipientName, sentAt: new Date() } });
     } catch (error) {
       return res.status(500).json({ statusCode: 500, error: error.message });
     }
@@ -657,6 +661,17 @@ class WhatsappController {
             const intent = consentIntent(text);
             if (intent) {
               const optIn = intent === 'start';
+              const source = optIn ? 'whatsapp_inbound' : 'whatsapp_stop';
+
+              // Consent lives on the phone number first. Anyone can opt in —
+              // they do not have to be a paying client yet.
+              await WhatsappOptIn.updateOne(
+                { phone },
+                { $set: { optIn, optInText: text, optInSource: source, consentAt: when } }
+              );
+
+              // Mirror onto any matching Client so existing marketing queries
+              // and the send-time guard keep working unchanged.
               const last10 = String(phone).replace(/[^\d]/g, '').slice(-10);
               if (last10.length === 10) {
                 const r = await Client.updateMany(
@@ -666,15 +681,16 @@ class WhatsappController {
                       whatsappOptIn: optIn,
                       whatsappOptInText: text,
                       whatsappOptInAt: when,
-                      whatsappOptInSource: optIn ? 'whatsapp_inbound' : 'whatsapp_stop',
+                      whatsappOptInSource: source,
                     },
                   }
                 );
                 console.log(`[WA][CONSENT] ${intent} from=${phone} clientsUpdated=${r.modifiedCount}`);
-                // No client record yet (a website visitor who has never been
-                // billed): the WhatsappOptIn row above still holds the proof.
+                // No client record yet (a walk-in who has never been billed).
+                // The WhatsappOptIn row holds the consent; createClient copies
+                // it across the moment they are registered.
                 if (optIn && r.matchedCount === 0) {
-                  console.log(`[WA][CONSENT] no client for ${phone} — consent recorded, link it when they are billed`);
+                  console.log(`[WA][CONSENT] no client for ${phone} — consent held on the opt-in row, will link on client create`);
                 }
               }
             }
@@ -689,3 +705,6 @@ class WhatsappController {
 }
 
 module.exports = new WhatsappController();
+// Exported so the consent backfill script matches messages exactly the way the
+// live webhook does — one definition, no drift.
+module.exports.consentIntent = consentIntent;

@@ -1,5 +1,6 @@
 const Client = require('../models/Client');
 const Wallet = require('../models/Wallet');
+const WhatsappOptIn = require('../models/WhatsappOptIn');
 
 class ClientController {
   async createClient(req, res) {
@@ -29,9 +30,27 @@ class ClientController {
         }
       }
 
+      // Carry over a WhatsApp consent this number already gave. Someone can opt
+      // in months before their first bill, and that consent is held on the
+      // phone number until a Client exists to attach it to.
+      if (req.body.phoneNumber && req.body.whatsappOptIn === undefined) {
+        try {
+          const last10 = String(req.body.phoneNumber).replace(/[^\d]/g, '').slice(-10);
+          if (last10.length === 10) {
+            const consent = await WhatsappOptIn.findOne({ phone: { $regex: last10 + '$' }, optIn: true });
+            if (consent) {
+              req.body.whatsappOptIn = true;
+              req.body.whatsappOptInText = consent.optInText || '';
+              req.body.whatsappOptInAt = consent.consentAt || consent.optInAt;
+              req.body.whatsappOptInSource = consent.optInSource || 'whatsapp_inbound';
+            }
+          }
+        } catch { /* consent lookup must never block client creation */ }
+      }
+
       const client = new Client(req.body);
       await client.save();
-      
+
       const wallet = new Wallet({
         clientId: client._id,
         balance: 0,
