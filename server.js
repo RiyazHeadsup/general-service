@@ -61,6 +61,11 @@ const feedbackRoutes = require('./routes/feedbackRoutes');
 const seedRoutes = require('./routes/seedRoutes');
 const whatsappRoutes = require('./routes/whatsappRoutes');
 const mailRoutes = require('./routes/mailRoutes');
+const appCategoryRoutes = require('./routes/appCategoryRoutes');
+const homeSectionRoutes = require('./routes/homeSectionRoutes');
+const appSettingRoutes = require('./routes/appSettingRoutes');
+const appVersionRoutes = require('./routes/appVersionRoutes');
+const maintenanceModeRoutes = require('./routes/maintenanceModeRoutes');
 
 const app = express();
 const PORT = parseInt(process.env.PORT) || 3003;
@@ -137,6 +142,11 @@ app.use('/', feedbackRoutes);
 app.use('/', seedRoutes);
 app.use('/', whatsappRoutes);
 app.use('/', mailRoutes);
+app.use('/', appCategoryRoutes);
+app.use('/', homeSectionRoutes);
+app.use('/', appSettingRoutes);
+app.use('/', appVersionRoutes);
+app.use('/', maintenanceModeRoutes);
 app.use('/app', appRoutes);
 
 async function startServer() {
