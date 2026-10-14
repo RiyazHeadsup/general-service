@@ -161,7 +161,7 @@ const checkOtaUpdate = async (req, res) => {
       app: String(app),
       platform: { $in: [String(platform), 'both'] },
       buildNumber: { $gt: buildNumber },
-      $or: [{ minBuildNumber: { $exists: false } }, { minBuildNumber: { $lte: buildNumber } }]
+      $or: [{ minBuildNumber: null }, { minBuildNumber: { $lte: buildNumber } }]
     }).sort({ buildNumber: -1 });
 
     if (!latestOta) {
