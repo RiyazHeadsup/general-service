@@ -1,26 +1,5 @@
-const admin = require('firebase-admin');
+const { admin } = require('../config/firebase');
 const PushToken = require('../models/PushToken');
-
-// Initialize Firebase Admin SDK
-// Uses GOOGLE_APPLICATION_CREDENTIALS env var or service account JSON
-if (!admin.apps.length) {
-  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
-    ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
-    : null;
-
-  if (serviceAccount) {
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-    });
-  } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-    });
-  } else {
-    console.warn('⚠️  Firebase Admin: No credentials found. Set FIREBASE_SERVICE_ACCOUNT or GOOGLE_APPLICATION_CREDENTIALS env var.');
-    admin.initializeApp();
-  }
-}
 
 class NotificationService {
   // Send notification to a single client
