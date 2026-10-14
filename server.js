@@ -69,6 +69,10 @@ const PORT = parseInt(process.env.PORT) || 3003;
 // default. Base64 adds ~33%, so a 16mb video — WhatsApp's ceiling — needs ~22mb.
 app.use(express.json({ limit: '32mb' }));
 
+// Customer requests (x-client-id from the gateway): scope to that client
+const { clientScope } = require('./middleware/clientScope');
+app.use(clientScope);
+
 
 const database = new DatabaseConfig();
 const consulConfig = new ConsulConfig({
