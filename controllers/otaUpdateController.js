@@ -30,7 +30,7 @@ const addOtaUpdate = async (req, res) => {
 // Body: { fileBase64, fileName, version, buildNumber, platform, app, releaseNotes, forceUpdate, releasedBy }
 const uploadOtaBundle = async (req, res) => {
   try {
-    const { fileBase64, fileName = 'ota-bundle.zip', version, buildNumber, platform = 'both', app = 'partner', releaseNotes = '', forceUpdate = false, releasedBy = '' } = req.body;
+    const { fileBase64, fileName = 'ota-bundle.zip', version, buildNumber, minBuildNumber = 0, platform = 'both', app = 'partner', releaseNotes = '', forceUpdate = false, releasedBy = '' } = req.body;
 
     if (!fileBase64) {
       return res.status(400).json({ success: false, statusCode: 400, message: 'fileBase64 is required' });
@@ -72,6 +72,7 @@ const uploadOtaBundle = async (req, res) => {
     const otaUpdate = new OtaUpdate({
       version,
       buildNumber: parseInt(buildNumber, 10),
+      minBuildNumber: parseInt(minBuildNumber, 10) || 0,
       platform,
       app,
       bundleUrl,
@@ -159,7 +160,8 @@ const checkOtaUpdate = async (req, res) => {
       isActive: true,
       app: String(app),
       platform: { $in: [String(platform), 'both'] },
-      buildNumber: { $gt: buildNumber }
+      buildNumber: { $gt: buildNumber },
+      $or: [{ minBuildNumber: { $exists: false } }, { minBuildNumber: { $lte: buildNumber } }]
     }).sort({ buildNumber: -1 });
 
     if (!latestOta) {

@@ -6,6 +6,10 @@ const mongoosePaginate = require('mongoose-paginate-v2');
 const otaUpdateSchema = new mongoose.Schema({
   version: { type: String, required: true, trim: true },
   buildNumber: { type: Number, required: true },
+  // Only apps already on this build or later get the bundle. An OTA bundle
+  // must match the native binary it runs on; apps on older store builds
+  // (different native modules) are left for a store update instead.
+  minBuildNumber: { type: Number, default: 0 },
   platform: { type: String, enum: ['android', 'ios', 'both'], default: 'both' },
   app: { type: String, enum: ['partner', 'client'], default: 'partner' },
   bundleUrl: { type: String, required: true },
