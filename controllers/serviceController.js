@@ -37,7 +37,8 @@ const searchService = async (req, res) => {
       fuzzySearch
     } = req.body;
 
-    const defaultPopulate = ['categoryId', 'subCategoryId', 'unitIds', 'staffIds', 'serviceParentId', 'productId', { path: 'inventoryId', select: 'qty stockIn stockOut status' }];
+    // staffIds point at User, which holds password/pin/jwtToken; never return those
+    const defaultPopulate = ['categoryId', 'subCategoryId', 'unitIds', { path: 'staffIds', select: '-password -mpin -pin -jwtToken -salary' }, 'serviceParentId', 'productId', { path: 'inventoryId', select: 'qty stockIn stockOut status' }];
     const options = {
       page: parseInt(page),
       limit: parseInt(limit),
