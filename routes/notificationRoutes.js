@@ -9,6 +9,7 @@ router.post('/searchPushToken', notificationController.searchPushToken);
 
 // Send Notifications
 router.post('/sendNotification', notificationController.sendNotification);
+router.post('/sendAppointmentNotification', notificationController.sendAppointmentNotification);
 router.post('/sendBulkNotification', notificationController.sendBulkNotification);
 
 // Notification History

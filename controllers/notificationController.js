@@ -1,6 +1,7 @@
 const PushToken = require('../models/PushToken');
 const Notification = require('../models/Notification');
 const notificationService = require('../services/notificationService');
+const Client = require('../models/Client');
 
 class NotificationController {
   // Register or update FCM token for a client
@@ -96,6 +97,50 @@ class NotificationController {
         message: 'Notification sent',
         data: { ...result, notificationId: notification._id }
       });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  // Appointment updates from billing-service. A person has one Client per
+  // unit, and the app registers its push token under the Client it logged in
+  // with, which may not be the bill's. So every Client with the same phone
+  // number is targeted.
+  // Body: { clientId, phoneNumber?, title, body, data?, type? }
+  async sendAppointmentNotification(req, res) {
+    try {
+      const { clientId, phoneNumber, title, body, data, type } = req.body;
+      if (!clientId || !title || !body) {
+        return res.status(400).json({ error: 'clientId, title and body are required' });
+      }
+
+      const ids = new Set([String(clientId)]);
+      const last10 = String(phoneNumber || '').replace(/[^\d]/g, '').slice(-10);
+      if (last10.length === 10) {
+        const sameNumber = await Client.find({ phoneNumber: { $regex: last10 + '$' } }).select('_id').lean();
+        sameNumber.forEach(c => ids.add(String(c._id)));
+      }
+
+      const tokens = await PushToken.find({ clientId: { $in: [...ids] }, isActive: true }).select('clientId').lean();
+      const withTokens = [...new Set(tokens.map(t => t.clientId))];
+      const result = await notificationService.sendToClients([...ids], title, body, data || {});
+
+      // One record per app account that has a device, so it shows in that
+      // account's notification list
+      const recordFor = withTokens.length ? withTokens : [String(clientId)];
+      await Notification.insertMany(recordFor.map(id => ({
+        title,
+        body,
+        data: data || {},
+        type: type || 'booking',
+        clientId: id,
+        targetType: 'single',
+        status: result.fail === 0 && result.success > 0 ? 'sent' : result.success === 0 ? 'failed' : 'partial',
+        successCount: result.success,
+        failCount: result.fail
+      })));
+
+      res.status(200).json({ statusCode: 200, message: 'Notification sent', data: result });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
