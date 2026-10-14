@@ -143,6 +143,15 @@ async function startServer() {
   try {
     await database.connect();
 
+    // Geo location for nearby-salon search, from each unit's lat/lng
+    try {
+      const Unit = require('./models/Unit');
+      const { modifiedCount } = await Unit.syncLocations();
+      if (modifiedCount) console.log(`📍 Synced location for ${modifiedCount} unit(s)`);
+    } catch (error) {
+      console.error('❌ Unit location sync failed:', error.message);
+    }
+
     app.listen(PORT, async () => {
       console.log(`🚀 General service running on port ${PORT}`);
       console.log(`📍 Available endpoints:`);
