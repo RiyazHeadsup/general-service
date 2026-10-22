@@ -13,14 +13,24 @@ class StaffController {
         return res.status(400).json({ success: false, statusCode: 400, message: 'Phone number is required' });
       }
 
-      // Check duplicate per unit
+      // A phone number is one person (staff login is by phone), so one staff record can work in
+      // several salons via unitIds. Same salon again → duplicate; another salon → link this salon.
       const unitIds = req.body.unitIds || [];
       const unitId = Array.isArray(unitIds) ? unitIds[0] : unitIds;
-      const dupeQuery = { phoneNumber };
-      if (unitId) dupeQuery.unitIds = unitId;
-      const existing = await Staff.findOne(dupeQuery);
+      const existing = await Staff.findOne({ phoneNumber });
       if (existing) {
-        return res.status(409).json({ success: false, statusCode: 409, message: 'Staff with this phone number already exists in this unit' });
+        const alreadyHere = !unitId || (existing.unitIds || []).some(u => String(u) === String(unitId));
+        if (alreadyHere) {
+          return res.status(409).json({ success: false, statusCode: 409, message: unitId ? 'Staff with this phone number already exists in this unit' : 'Staff with this phone number already exists' });
+        }
+        const linked = await Staff.findByIdAndUpdate(existing._id, { $addToSet: { unitIds: unitId } }, { new: true });
+        return res.status(200).json({
+          success: true,
+          statusCode: 200,
+          linked: true,
+          message: 'Staff already exists in another salon — linked to this salon',
+          data: linked
+        });
       }
 
       const staff = new Staff(req.body);
