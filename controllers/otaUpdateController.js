@@ -30,7 +30,7 @@ const addOtaUpdate = async (req, res) => {
 // Body: { fileBase64, fileName, version, buildNumber, platform, app, releaseNotes, forceUpdate, releasedBy }
 const uploadOtaBundle = async (req, res) => {
   try {
-    const { fileBase64, fileName = 'ota-bundle.zip', version, buildNumber, minBuildNumber = 0, platform = 'both', app = 'partner', releaseNotes = '', forceUpdate = false, releasedBy = '' } = req.body;
+    const { fileBase64, fileName = 'ota-bundle.zip', version, buildNumber, minBuildNumber = 0, platform = 'both', app = 'partner', releaseNotes = '', forceUpdate = false, releasedBy = '', isActive = true } = req.body;
 
     if (!fileBase64) {
       return res.status(400).json({ success: false, statusCode: 400, message: 'fileBase64 is required' });
@@ -79,11 +79,13 @@ const uploadOtaBundle = async (req, res) => {
       storagePath,
       releaseNotes,
       releasedBy,
-      forceUpdate: forceUpdate === 'true' || forceUpdate === true
+      forceUpdate: forceUpdate === 'true' || forceUpdate === true,
+      // Upload inactive to test on your own phone first, then switch it on
+      isActive: !(isActive === false || isActive === 'false')
     });
     await otaUpdate.save();
 
-    res.status(201).json({ success: true, statusCode: 201, message: 'Bundle uploaded and OTA update published', data: otaUpdate });
+    res.status(201).json({ success: true, statusCode: 201, message: otaUpdate.isActive ? 'Bundle uploaded and OTA update published' : 'Bundle uploaded (inactive)', data: otaUpdate });
   } catch (error) {
     res.status(500).json({ success: false, statusCode: 500, message: 'Error uploading bundle', error: error.message });
   }
