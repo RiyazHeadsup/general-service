@@ -5,6 +5,7 @@ require('../models/AppCategory');
 require('../models/Service');
 require('../models/Category');
 require('../models/SubCategory');
+require('../models/Staff');
 
 // Admin CRUD for the customer app's home-screen sections. The gateway serves
 // the public read (searchHomeSection) from the same `homesections` collection.
@@ -14,12 +15,14 @@ const badId = (res, field = 'home section ID') =>
 
 // Display fields only — never staffIds or anything user-linked.
 const SERVICE_FIELDS = 'name img price service_time gender includeInSubscription';
+const SPECIALIST_FIELDS = 'name designation img profilePic experience expertise rating isTopRated isActive';
 const SECTION_POPULATE = [
   { path: 'appCategoryId', select: 'name icon' },
   { path: 'services.serviceId', select: SERVICE_FIELDS },
   { path: 'categories.categoryId', select: 'name img gender' },
   { path: 'categories.subCategoryId', select: 'name img gender' },
-  { path: 'packages.services.serviceId', select: SERVICE_FIELDS }
+  { path: 'packages.services.serviceId', select: SERVICE_FIELDS },
+  { path: 'specialists.staffId', select: SPECIALIST_FIELDS }
 ];
 
 const addHomeSection = async (req, res) => {

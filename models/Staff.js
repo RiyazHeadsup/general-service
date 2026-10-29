@@ -201,6 +201,23 @@ const staffSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  // Public profile shown in the customer app's specialist screen
+  tagline: { type: String, trim: true },
+  bio: { type: String, trim: true },
+  languages: [{ type: String, trim: true }],
+  servesGender: { type: String, enum: ['Men', 'Women', 'Men & Women', ''], default: '' },
+  expertise: [{ type: String, trim: true }],
+  certifications: [{
+    title: { type: String, trim: true },
+    issuer: { type: String, trim: true },
+    year: { type: String, trim: true }
+  }],
+  portfolio: [{ type: String, trim: true }],
+  coverImage: { type: String, trim: true },
+  isTopRated: { type: Boolean, default: false },
+  clientsServed: { type: Number, default: 0, min: 0 },
+  repeatClientPercent: { type: Number, default: 0, min: 0, max: 100 },
+  signatureServiceIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Service' }],
   rating: {
     average: { type: Number, default: 0 },
     total: { type: Number, default: 0 },

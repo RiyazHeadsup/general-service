@@ -82,6 +82,18 @@ const sectionCategorySchema = new mongoose.Schema({
   }
 }, { _id: false });
 
+const sectionSpecialistSchema = new mongoose.Schema({
+  staffId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Staff',
+    required: true
+  },
+  order: {
+    type: Number,
+    default: 0
+  }
+}, { _id: false });
+
 const homeSectionSchema = new mongoose.Schema({
   appCategoryId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -125,7 +137,7 @@ const homeSectionSchema = new mongoose.Schema({
   },
   sectionType: {
     type: String,
-    enum: ['services', 'categories', 'packages'],
+    enum: ['services', 'categories', 'packages', 'specialists'],
     default: 'services'
   },
   services: {
@@ -138,6 +150,10 @@ const homeSectionSchema = new mongoose.Schema({
   },
   packages: {
     type: [sectionPackageSchema],
+    default: []
+  },
+  specialists: {
+    type: [sectionSpecialistSchema],
     default: []
   },
   order: {
